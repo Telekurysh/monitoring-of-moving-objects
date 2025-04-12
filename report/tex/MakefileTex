@@ -1,0 +1,14 @@
+.PHONY : build move
+
+see : build move
+
+build : rpz.tex
+	pdflatex -shell-escape rpz.tex
+	biber rpz
+	biber rpz
+	pdflatex -shell-escape rpz.tex
+	pdflatex -shell-escape rpz.tex
+
+move : rpz.pdf
+	-mkdir ../pdf
+	mv rpz.pdf ../pdf/ 

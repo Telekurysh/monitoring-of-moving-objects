@@ -115,7 +115,7 @@ class ZoneModel(ZoneBase):
             raise ValueError(f"Invalid zone type: {value}")
         return value
 
-    @field_validator("coordinates")
+    @field_validator("coordinates", check_fields=False)
     @classmethod
     def validate_coordinates(cls, value: CircleZone | RectangleZone | PolygoneZone,
                              info: ValidationInfo) -> CircleZone | RectangleZone | PolygoneZone:

@@ -39,8 +39,9 @@ class ObjectZoneRepository(BaseRepository[ObjectZone]):
         object_zone = result.scalar_one_or_none()
         
         if object_zone:
-            object_zone.exited_at = datetime.utcnow()  # type: ignore[assignment]
+            object_zone.exited_at = datetime.utcnow()
             await self._session.flush()
+            await self._session.commit()  # добавлено commit
             return True
         return False
 

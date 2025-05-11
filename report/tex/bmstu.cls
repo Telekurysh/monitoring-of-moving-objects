@@ -13,8 +13,14 @@
 \RequirePackage[T1, T2A]{fontenc}
 \RequirePackage[utf8]{inputenc}
 \RequirePackage[english,main=russian]{babel}
-%\RequirePackage{pscyr}
-\renewcommand{\rmdefault}{ftm}
+%\RequirePackage{pscyr} % pscyr.sty not found — отключено
+\renewcommand{\rmdefault}{cmr}
+% Добавляем определения недостающих начертаний для ftm:
+\makeatletter
+\DeclareFontShape{T2A}{cmr}{m}{n}{<-> ssub *cmr/m/n}{}
+\DeclareFontShape{T2A}{cmr}{b}{n}{<-> ssub *cmr/b/n}{}
+\DeclareFontShape{T2A}{cmr}{m}{it}{<-> ssub *cmr/m/it}{}
+\makeatother
 
 % Настройка полей
 \RequirePackage[
@@ -463,7 +469,7 @@
 	
 	Расчетно-пояснительная записка \begin{NoHyper}\pageref{LastPage}\end{NoHyper}~с., \totfig~рис., \tottab~табл., \thetotbibentries~источн., \total{appendixchapters}~прил.
 	
-	\noindent \MakeUppercase{#1} \par
+	\noindent \MakeUppercase{РЕФЕРАТ} \par
 }{}
 
 

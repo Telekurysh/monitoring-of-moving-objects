@@ -12,13 +12,13 @@ from src.sensor_track_pro.data_access.models.objects import Object
 from src.sensor_track_pro.data_access.repositories.base import BaseRepository
 
 
-class ObjectRepository(BaseRepository[Object], IObjectRepository):
+class ObjectRepository(BaseRepository[Object], IObjectRepository):  # type: ignore[misc]
     """Репозиторий для работы с объектами."""
 
     def __init__(self, session: AsyncSession):
         super().__init__(session, Object)
 
-    async def create(self, object_data: ObjectModel) -> ObjectModel:
+    async def create(self, object_data: ObjectModel) -> ObjectModel:  # type: ignore[override]
         """Создает новый объект."""
         db_object = Object(**object_data.model_dump(exclude={"id", "created_at", "updated_at"}))
         await super().create(db_object)

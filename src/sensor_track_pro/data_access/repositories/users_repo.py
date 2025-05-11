@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 
+from typing import Any  # добавлено
 from uuid import UUID
 
 from sqlalchemy import select
@@ -22,15 +23,15 @@ class UserRepository(BaseRepository[User], IUserRepository):
     def __init__(self, session: AsyncSession):
         super().__init__(session, User)
 
-    async def create(self, user_data: UserBase, password: str) -> UserModel:
+    async def create(self, user_data: UserBase, password: str) -> UserModel:  # type: ignore[override]
         """Создает нового пользователя."""
         db_user = User(
             **user_data.model_dump(),
             password_hash=self._hash_password(password)
         )
         try:
-            await super().create(db_user)
-            return UserModel.model_validate(db_user)
+            instance = await super().create(db_user)
+            return UserModel.model_validate(instance)
         except IntegrityError:
             raise ValueError("Пользователь с таким именем уже существует")
 
@@ -63,6 +64,25 @@ class UserRepository(BaseRepository[User], IUserRepository):
             await self._session.flush()
             return True
         return False
+
+    async def get_by_id(self, user_id: UUID) -> UserModel | None:  # type: ignore[override]
+        """Получает пользователя по ID."""
+        db_user = await super().get_by_id(user_id)
+        return UserModel.model_validate(db_user) if db_user else None
+
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters: dict[str, Any]) -> list[UserModel]:  # type: ignore[override]
+        """Получает всех пользователей с возможностью фильтрации."""
+        db_users = await super().get_all(skip, limit, **filters)
+        return [UserModel.model_validate(u) for u in db_users]
+
+    async def update(self, user_id: UUID, user_data: dict[str, Any]) -> UserModel | None:  # type: ignore[override]
+        """Обновляет данные пользователя."""
+        db_user = await super().update(user_id, user_data)
+        return UserModel.model_validate(db_user) if db_user else None
+
+    async def delete(self, user_id: UUID) -> bool:
+        """Удаляет пользователя."""
+        return await super().delete(user_id)
 
     def _hash_password(self, password: str) -> str:
         """Хеширует пароль с использованием SHA-256."""

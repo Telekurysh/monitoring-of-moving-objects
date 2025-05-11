@@ -26,12 +26,12 @@ class IEventRepository(ABC):
         """
 
     @abstractmethod
-    async def get_by_id(self, event_id: int) -> EventModel | None:
+    async def get_by_id(self, event_id: UUID) -> EventModel | None:
         """
         Получает событие по его идентификатору.
         
         Args:
-            event_id: Числовой идентификатор события
+            event_id: UUID идентификатор события
             
         Returns:
             Событие, если найдено, иначе None
@@ -59,14 +59,14 @@ class IEventRepository(ABC):
     @abstractmethod
     async def update(
             self,
-            event_id: int,
+            event_id: UUID,
             event_data: dict[str, Any]
     ) -> EventModel | None:
         """
         Обновляет событие по идентификатору.
         
         Args:
-            event_id: Числовой идентификатор события
+            event_id: UUID идентификатор события
             event_data: Данные для частичного обновления
             
         Returns:
@@ -74,12 +74,12 @@ class IEventRepository(ABC):
         """
 
     @abstractmethod
-    async def delete(self, event_id: int) -> bool:
+    async def delete(self, event_id: UUID) -> bool:
         """
         Удаляет событие по идентификатору.
         
         Args:
-            event_id: Числовой идентификатор события
+            event_id: UUID идентификатор события
             
         Returns:
             True если удаление успешно, иначе False

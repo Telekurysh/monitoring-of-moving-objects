@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from uuid import uuid4
+import uuid
 
 from sqlalchemy import Enum
 from sqlalchemy import String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
@@ -17,7 +18,7 @@ class Object(Base):
 
     __tablename__ = "object"  # type: ignore
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     type: Mapped[ObjectType] = mapped_column(Enum(ObjectType), nullable=False)
     description: Mapped[str | None] = mapped_column(String(500), nullable=True)

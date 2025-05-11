@@ -1,12 +1,18 @@
 # ruff: noqa: UP046
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any
+from typing import Generator
 from typing import Generic
 from typing import TypeVar
 from uuid import UUID
 
+from sqlalchemy import delete
+from sqlalchemy import exists
+from sqlalchemy import insert
 from sqlalchemy import select
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.sensor_track_pro.data_access.models.base import Base
@@ -33,10 +39,25 @@ class BaseRepository(Generic[ModelType]):
             Созданный экземпляр с заполненными полями
         """
         try:
-            self._session.add(instance)
-            await self._session.flush()
-            await self._session.refresh(instance)
-            return instance
+            # Собираем данные из колонок модели с преобразованием datetime к наивному формату
+            data = {}
+            for col in self._model.__table__.c:  # изменено: .columns -> .c
+                value = getattr(instance, col.name)
+                if isinstance(value, datetime) and value.tzinfo is not None:
+                    value = value.replace(tzinfo=None)
+                data[col.name] = value
+            stmt = insert(self._model).values(**data).returning(*self._model.__table__.columns)
+            result = await self._session.execute(stmt)
+            row = result.fetchone()
+            await self._session.commit()
+            if row is None:
+                raise Exception("Insert failed")
+            pk = next(iter(self._model.__table__.primary_key)).name  # изменено
+            pk_idx = list(result.keys()).index(pk)
+            created_instance = await self.get_by_id(row[pk_idx])
+            if created_instance is None:
+                raise Exception("Insert failed: created instance is None")
+            return created_instance
         except Exception as e:
             # Обработка ошибки создания записи: меняем сообщение для зоны
             if self._model.__name__ == "Zone":
@@ -53,7 +74,7 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             Найденная запись или None
         """
-        query = select(self._model).filter(self._model.id == str(instance_id))
+        query = select(self._model).where(self._model.id == instance_id)
         result = await self._session.execute(query)
         return result.scalar_one_or_none()
 
@@ -61,7 +82,7 @@ class BaseRepository(Generic[ModelType]):
         self,
         skip: int = 0,
         limit: int = 100,
-        **filters: dict[str, Any]
+        filters: dict[str, Any] | None = None
     ) -> list[ModelType]:
         """
         Получает список записей с пагинацией и фильтрацией.
@@ -69,17 +90,17 @@ class BaseRepository(Generic[ModelType]):
         Args:
             skip: Количество пропускаемых записей
             limit: Максимальное количество возвращаемых записей
-            filters: Параметры фильтрации
+            filters: Словарь параметров фильтрации
             
         Returns:
             Список записей
         """
         query = select(self._model)
         
-        # Применяем фильтры
-        for field, value in filters.items():
-            if hasattr(self._model, field):
-                query = query.filter(getattr(self._model, field) == value)
+        if filters:
+            for field, value in filters.items():
+                if hasattr(self._model, field):
+                    query = query.where(getattr(self._model, field) == value)
                 
         query = query.offset(skip).limit(limit)
         result = await self._session.execute(query)
@@ -97,17 +118,29 @@ class BaseRepository(Generic[ModelType]):
             Обновленная запись или None
         """
         try:
-            instance = await self.get_by_id(instance_id)
-            if instance:
-                for field, value in values.items():
-                    if hasattr(instance, field):
-                        setattr(instance, field, value)
-                await self._session.flush()
-                await self._session.refresh(instance)
-                return instance
-            return None
+            from datetime import datetime  # ensure import
+            values_to_update = {}
+            for key, value in values.items():
+                if isinstance(value, datetime) and value.tzinfo is not None:
+                    value = value.replace(tzinfo=None)
+                values_to_update[key] = value
+            # Добавляем автоматическое обновление updated_at, если не задано
+            if "updated_at" not in values_to_update:
+                values_to_update["updated_at"] = datetime.now().replace(tzinfo=None)
+            stmt = (
+                update(self._model)
+                .where(self._model.id == instance_id)
+                .values(**values_to_update)
+                .returning(self._model)
+            )
+            result = await self._session.execute(stmt)
+            await self._session.flush()
+            await self._session.commit()  # добавлено commit
+            return result.scalar_one_or_none()
         except Exception as e:
-            raise Exception(f"Ошибка обновления экземпляра с id {instance_id}: {e}")
+            raise Exception(
+                f"Ошибка обновления {self._model.__name__} с id {instance_id}: {e!s}"
+            ) from e
 
     async def delete(self, instance_id: UUID) -> bool:
         """
@@ -120,14 +153,15 @@ class BaseRepository(Generic[ModelType]):
             True если удаление успешно, иначе False
         """
         try:
-            instance = await self.get_by_id(instance_id)
-            if instance:
-                await self._session.delete(instance)
-                await self._session.flush()
-                return True
-            return False
+            stmt = delete(self._model).where(self._model.id == instance_id)
+            result = await self._session.execute(stmt)
+            await self._session.flush()
+            await self._session.commit()  # добавлено commit
+            return (result.rowcount or 0) > 0  # изменено
         except Exception as e:
-            raise Exception(f"Ошибка удаления экземпляра с id {instance_id}: {e}")
+            raise Exception(
+                f"Ошибка удаления {self._model.__name__} с id {instance_id}: {e!s}"
+            ) from e
 
     async def exists(self, instance_id: UUID) -> bool:
         """
@@ -139,6 +173,11 @@ class BaseRepository(Generic[ModelType]):
         Returns:
             True если запись существует, иначе False
         """
-        query = select(self._model).filter(self._model.id == str(instance_id))
+        query = select(exists().where(self._model.id == instance_id))
         result = await self._session.execute(query)
-        return result.scalar_one_or_none() is not None
+        return bool(result.scalar())  # изменено
+
+    def __await__(self) -> Generator[Any, None, BaseRepository[ModelType]]:  # изменено
+        # Позволяет ожидать экземпляр репозитория, возвращая self
+        yield from ()
+        return self

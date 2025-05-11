@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -20,7 +21,7 @@ class SensorRepository(BaseRepository[Sensor], ISensorRepository):
     def __init__(self, session: AsyncSession):
         super().__init__(session, Sensor)
 
-    async def create(self, sensor_data: SensorBase) -> SensorModel:
+    async def create(self, sensor_data: SensorBase) -> SensorModel:  # type: ignore[override]
         """Создает новый сенсор."""
         db_sensor = Sensor(**sensor_data.model_dump())
         await super().create(db_sensor)
@@ -73,3 +74,15 @@ class SensorRepository(BaseRepository[Sensor], ISensorRepository):
         )
         result = await self._session.execute(query)
         return [SensorModel.model_validate(s) for s in result.scalars().all()]
+
+    async def get_by_id(self, sensor_id: UUID) -> SensorModel | None:  # type: ignore[override]
+        db_sensor = await super().get_by_id(sensor_id)
+        return SensorModel.model_validate(db_sensor) if db_sensor else None
+
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters: dict[str, Any]) -> list[SensorModel]:  # type: ignore[override]
+        db_list = await super().get_all(skip, limit, **filters)
+        return [SensorModel.model_validate(s) for s in db_list]
+
+    async def update(self, sensor_id: UUID, sensor_data: dict[str, Any]) -> SensorModel | None:  # type: ignore[override]
+        db_sensor = await super().update(sensor_id, sensor_data)
+        return SensorModel.model_validate(db_sensor) if db_sensor else None

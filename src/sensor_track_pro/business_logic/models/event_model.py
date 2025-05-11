@@ -13,7 +13,7 @@ class EventType(StrEnum):
     """Типы событий."""
     MOVE = "move"
     STOP = "stop"
-    ZONE_ENTER = "zone_entr"
+    ZONE_ENTER = "zone_enter"  # исправлено с zone_entr
     ZONE_EXIT = "zone_exit"
     SPEED_LIMIT = "speed_limit"
     SENSOR_FAULT = "sensor_fault"

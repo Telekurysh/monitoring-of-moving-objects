@@ -1,32 +1,35 @@
 from __future__ import annotations
 
-from uuid import uuid4
+import uuid
+
+from typing import Any
 
 from sqlalchemy import JSON
 from sqlalchemy import Column
 from sqlalchemy import DateTime
-from sqlalchemy import Enum
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
 from sqlalchemy import String
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped
+from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
 
-from src.sensor_track_pro.business_logic.models.route_model import RouteStatus
 from src.sensor_track_pro.data_access.models.base import Base
 
 
 class Route(Base):
     """Модель маршрута в базе данных."""
 
-    id = Column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[uuid.UUID] = mapped_column(UUID[Any](as_uuid=True), primary_key=True, default=uuid.uuid4)
     object_id = Column(String(36), ForeignKey("object.id"), nullable=False)
-    name = Column(String(100), nullable=True)
+    name: Mapped[str] = mapped_column()
     description = Column(String(500), nullable=True)
     start_time = Column(DateTime, nullable=False)
     end_time = Column(DateTime, nullable=True)
-    status = Column(Enum(RouteStatus), nullable=False, default=RouteStatus.PLANNED)
+    status: Mapped[str] = mapped_column(String(50), nullable=False, default="PLANNED")
     points = Column(JSON, nullable=False)  # Хранит список точек маршрута
-    metadata = Column(JSON, nullable=True)  # Дополнительные метаданные маршрута
+    route_metadata = Column(JSON, nullable=True)  # Дополнительные метаданные маршрута
 
     # Связи
     object = relationship("Object", back_populates="routes")

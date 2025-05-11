@@ -96,7 +96,7 @@ class ZoneBase(BaseModel):
 
     name: str = Field(..., min_length=1, max_length=100, description="Название зоны")
     zone_type: ZoneType = Field(..., description="Тип зоны")
-    coordiates: CircleZone | RectangleZone | PolygoneZone = Field(..., description="Координаты зоны")
+    coordinates: CircleZone | RectangleZone | PolygoneZone = Field(..., description="Координаты зоны")
     description: str | None = Field(None, max_length=500, description="Описание зоны")
 
 

@@ -19,16 +19,16 @@ class EventService(BaseService[EventModel]):
     async def create_event(self, event_data: EventBase) -> EventModel:
         return await self._event_repository.create(event_data)
 
-    async def get_event(self, event_id: int) -> EventModel | None:
+    async def get_event(self, event_id: UUID) -> EventModel | None:
         return await self._event_repository.get_by_id(event_id)
 
     async def get_events(self, skip: int = 0, limit: int = 100, **filters: FilterParams) -> list[EventModel]:
         return await self._event_repository.get_all(skip, limit, **filters)
 
-    async def update_event(self, event_id: int, event_data: dict[str, Any]) -> EventModel | None:
+    async def update_event(self, event_id: UUID, event_data: dict[str, Any]) -> EventModel | None:
         return await self._event_repository.update(event_id, event_data)
 
-    async def delete_event(self, event_id: int) -> bool:
+    async def delete_event(self, event_id: UUID) -> bool:
         return await self._event_repository.delete(event_id)
 
     async def get_events_by_sensor(self, sensor_id: UUID) -> list[EventModel]:

@@ -16,7 +16,7 @@ from src.sensor_track_pro.data_access.models.zones import Zone
 from src.sensor_track_pro.data_access.repositories.base import BaseRepository
 
 
-class ZoneRepository(BaseRepository[Zone], IZoneRepository):
+class ZoneRepository(BaseRepository[Zone], IZoneRepository):  # type: ignore[misc]
     """Репозиторий для работы с зонами."""
 
     def __init__(self, session: AsyncSession):
@@ -27,8 +27,8 @@ class ZoneRepository(BaseRepository[Zone], IZoneRepository):
         db_zone = Zone(**zone_data.model_dump())
         # Преобразуем координаты в геометрию для PostgreSQL
         db_zone.boundary_polygon = self._coordinates_to_geometry(zone_data.coordinates)
-        await super().create(db_zone)  # type: ignore[override]
-        return ZoneModel.model_validate(db_zone)
+        instance = await super().create(db_zone)
+        return ZoneModel.model_validate(instance)
 
     async def get_by_type(self, zone_type: ZoneType, skip: int = 0, limit: int = 100) -> list[ZoneModel]:
         """Получает зоны по типу."""
@@ -53,7 +53,7 @@ class ZoneRepository(BaseRepository[Zone], IZoneRepository):
         result = await self._session.execute(query)
         return [ZoneModel.model_validate(zone) for zone in result.scalars().all()]
 
-    def _coordinates_to_geometry(self, coordinates: dict[str, Any]) -> str:
+    def _coordinates_to_geometry(self, coordinates: Any) -> str:
         """Преобразует координаты в WKT-формат для PostgreSQL."""
         zone_type = coordinates.get("type", "polygon")
         if zone_type == "polygon":
@@ -70,13 +70,12 @@ class ZoneRepository(BaseRepository[Zone], IZoneRepository):
             radius = coordinates.get("radius")
             if not center or radius is None:
                 raise ValueError("Для круга требуются центр и радиус")
-            cx, cy = center
             import math
             points = []
             for i in range(32):
                 angle = 2 * math.pi * i / 32
-                x = cx + radius * math.cos(angle)
-                y = cy + radius * math.sin(angle)
+                x = center[0] + radius * math.cos(angle)
+                y = center[1] + radius * math.sin(angle)
                 points.append(f"{x} {y}")
             points.append(points[0])
             points_str = ", ".join(points)

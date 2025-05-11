@@ -12,7 +12,7 @@ from pydantic import Field
 
 class ObjectType(StrEnum):
     """Типы отслеживаемых объектов."""
-    VEIHICLE = "vehicle"
+    VEHICLE = "vehicle"  # исправлено с VEIHICLE
     CARGO = "cargo"
     EQUIPMENT = "equipment"
     OTHER = "other"

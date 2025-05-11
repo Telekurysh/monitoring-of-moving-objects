@@ -15,13 +15,13 @@ from src.sensor_track_pro.data_access.models.alerts import Alert
 from src.sensor_track_pro.data_access.repositories.base import BaseRepository
 
 
-class AlertRepository(BaseRepository[Alert], IAlertRepository):
+class AlertRepository(BaseRepository[Alert], IAlertRepository):  # type: ignore[misc]
     """Репозиторий для работы с оповещениями."""
 
     def __init__(self, session: AsyncSession):
         super().__init__(session, Alert)
 
-    async def create(self, alert_data: AlertBase) -> AlertModel:
+    async def create(self, alert_data: AlertBase) -> AlertModel:  # type: ignore[override]
         """Создает новое оповещение."""
         db_alert = Alert(**alert_data.model_dump())
         await super().create(db_alert)

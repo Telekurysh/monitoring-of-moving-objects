@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import uuid
+
 from typing import Any  # добавлен импорт
-from uuid import uuid4
 
 from geoalchemy2 import Geometry
 from sqlalchemy import JSON
 from sqlalchemy import Enum
 from sqlalchemy import String
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 
@@ -19,7 +21,7 @@ class Zone(Base):
 
     __tablename__ = "zone"  # type: ignore
 
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     zone_type: Mapped[ZoneType] = mapped_column(Enum(ZoneType), nullable=False)
     coordinates: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)  # исправлено any -> Any

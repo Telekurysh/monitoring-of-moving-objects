@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import or_  # добавлен импорт true, false и or_
+from sqlalchemy import select  # добавлен импорт true, false и or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.sensor_track_pro.business_logic.interfaces.repository.irout_repo import IRouteRepository
@@ -20,7 +22,7 @@ class RouteRepository(BaseRepository[Route], IRouteRepository):
     def __init__(self, session: AsyncSession):
         super().__init__(session, Route)
 
-    async def create(self, route_data: RouteBase) -> RouteModel:
+    async def create(self, route_data: RouteBase) -> RouteModel:  # type: ignore[override]
         """Создает новый маршрут."""
         db_route = Route(**route_data.model_dump())
         await super().create(db_route)
@@ -50,14 +52,9 @@ class RouteRepository(BaseRepository[Route], IRouteRepository):
 
     async def get_active_routes(self, skip: int = 0, limit: int = 100) -> list[RouteModel]:
         """Получает активные маршруты."""
-        query = (
-            select(Route)
-            .filter(Route.status == RouteStatus.IN_PROGRESS)
-            .offset(skip)
-            .limit(limit)
-        )
+        query = select(Route).filter(Route.status == RouteStatus.IN_PROGRESS).offset(skip).limit(limit)
         result = await self._session.execute(query)
-        return [RouteModel.model_validate(route) for route in result.scalars().all()]
+        return [RouteModel.model_validate(r) for r in result.scalars().all()]
 
     async def get_by_time_range(
         self,
@@ -71,10 +68,25 @@ class RouteRepository(BaseRepository[Route], IRouteRepository):
             select(Route)
             .filter(
                 Route.start_time >= start_time,
-                (Route.end_time <= end_time if Route.end_time else True)  # type: ignore[arg-type]
+                or_(
+                    Route.end_time.is_(None),  # заменено условие с использованием or_
+                    Route.end_time <= end_time
+                )
             )
             .offset(skip)
             .limit(limit)
         )
         result = await self._session.execute(query)
         return [RouteModel.model_validate(route) for route in result.scalars().all()]
+
+    async def get_by_id(self, route_id: UUID) -> RouteModel | None:  # type: ignore[override]
+        db_route = await super().get_by_id(route_id)
+        return RouteModel.model_validate(db_route) if db_route else None
+
+    async def get_all(self, skip: int = 0, limit: int = 100, **filters: dict[str, Any]) -> list[RouteModel]:  # type: ignore[override]
+        db_list = await super().get_all(skip, limit, **filters)
+        return [RouteModel.model_validate(r) for r in db_list]
+
+    async def update(self, route_id: UUID, route_data: dict[str, Any]) -> RouteModel | None:  # type: ignore[override]
+        db_route = await super().update(route_id, route_data)
+        return RouteModel.model_validate(db_route) if db_route else None

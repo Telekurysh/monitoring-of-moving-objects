@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
@@ -13,13 +14,13 @@ from src.sensor_track_pro.data_access.models.events import Event
 from src.sensor_track_pro.data_access.repositories.base import BaseRepository
 
 
-class EventRepository(BaseRepository[Event], IEventRepository):
+class EventRepository(BaseRepository[Event], IEventRepository):  # type: ignore[misc]
     """Репозиторий для работы с событиями."""
 
     def __init__(self, session: AsyncSession):
         super().__init__(session, Event)
 
-    async def create(self, event_data: EventBase) -> EventModel:
+    async def create(self, event_data: EventBase) -> EventModel:  # type: ignore[override]
         """Создает новое событие."""
         db_event = Event(**event_data.model_dump())
         await super().create(db_event)
@@ -71,3 +72,17 @@ class EventRepository(BaseRepository[Event], IEventRepository):
         )
         result = await self._session.execute(query)
         return [EventModel.model_validate(event) for event in result.scalars().all()]
+
+    async def get_by_id(self, event_id: UUID) -> EventModel | None:  # type: ignore[override]
+        """Получает событие по ID."""
+        db_event = await super().get_by_id(event_id)
+        return EventModel.model_validate(db_event) if db_event else None
+
+    async def update(self, event_id: UUID, event_data: dict[str, Any]) -> EventModel | None:  # type: ignore[override]
+        """Обновляет событие по ID."""
+        db_event = await super().update(event_id, event_data)
+        return EventModel.model_validate(db_event) if db_event else None
+
+    async def delete(self, event_id: UUID) -> bool:
+        """Удаляет событие по ID."""
+        return await super().delete(event_id)

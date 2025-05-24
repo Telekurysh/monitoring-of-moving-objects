@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.sensor_track_pro.business_logic.interfaces.repository.ievent_repo import IEventRepository
@@ -23,8 +23,8 @@ class EventRepository(BaseRepository[Event], IEventRepository):  # type: ignore[
     async def create(self, event_data: EventBase) -> EventModel:  # type: ignore[override]
         """Создает новое событие."""
         db_event = Event(**event_data.model_dump())
-        await super().create(db_event)
-        return EventModel.model_validate(db_event)
+        created_event = await super().create(db_event)
+        return await self.get_by_id(created_event.id)
 
     async def get_by_sensor_id(self, sensor_id: UUID, skip: int = 0, limit: int = 100) -> list[EventModel]:
         """Получает события по ID сенсора."""
@@ -49,30 +49,6 @@ class EventRepository(BaseRepository[Event], IEventRepository):  # type: ignore[
         result = await self._session.execute(query)
         return [EventModel.model_validate(event) for event in result.scalars().all()]
 
-    async def get_by_coordinates(
-        self,
-        latitude: float,
-        longitude: float,
-        radius: float,
-        skip: int = 0,
-        limit: int = 100
-    ) -> list[EventModel]:
-        """Получает события в радиусе от координат."""
-        # Используем PostgreSQL функцию ST_DWithin для поиска в радиусе
-        query = (
-            select(Event)
-            .filter(
-                Event.location.ST_DWithin(
-                    f'SRID=4326;POINT({longitude} {latitude})',
-                    radius * 1000  # конвертируем км в метры
-                )
-            )
-            .offset(skip)
-            .limit(limit)
-        )
-        result = await self._session.execute(query)
-        return [EventModel.model_validate(event) for event in result.scalars().all()]
-
     async def get_by_id(self, event_id: UUID) -> EventModel | None:  # type: ignore[override]
         """Получает событие по ID."""
         db_event = await super().get_by_id(event_id)
@@ -86,3 +62,24 @@ class EventRepository(BaseRepository[Event], IEventRepository):  # type: ignore[
     async def delete(self, event_id: UUID) -> bool:
         """Удаляет событие по ID."""
         return await super().delete(event_id)
+
+    async def get_by_coordinates(
+        self,
+        latitude: float,
+        longitude: float,
+        radius: float,
+        skip: int = 0,
+        limit: int = 100
+    ) -> list[EventModel]:
+        """
+        Получает события в радиусе от заданных координат (в километрах).
+        """
+        # Примерно: 1 градус ~ 111 км, для небольших радиусов можно использовать приближение
+        lat_delta = radius / 111.0
+        lon_delta = radius / (111.0 * abs(func.cos(func.radians(latitude))))
+        query = select(Event).filter(
+            Event.latitude.between(latitude - lat_delta, latitude + lat_delta),
+            Event.longitude.between(longitude - lon_delta, longitude + lon_delta)
+        ).offset(skip).limit(limit)
+        result = await self._session.execute(query)
+        return [EventModel.model_validate(event) for event in result.scalars().all()]

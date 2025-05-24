@@ -9,8 +9,8 @@ from sqlalchemy import JSON
 from sqlalchemy import Float
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
-from sqlalchemy import String
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.ext.declarative import declared_attr
 from sqlalchemy.orm import Mapped
 from sqlalchemy.orm import mapped_column
 from sqlalchemy.orm import relationship
@@ -21,11 +21,15 @@ from src.sensor_track_pro.data_access.models.base import Base
 class Telemetry(Base):
     """Модель телеметрии в базе данных."""
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID[Any](as_uuid=True), primary_key=True, default=uuid.uuid4)
-    object_id: Mapped[String] = mapped_column(ForeignKey("object.id"), nullable=False)
+    @declared_attr.directive
+    def __tablename__(self) -> str:
+        return "telemetry"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    object_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("objects.id"), nullable=False)
     timestamp: Mapped[datetime] = mapped_column(nullable=False, default=datetime.utcnow)
-    signal_strength: Mapped[float] = mapped_column(Float[Any], nullable=True)
-    additional_metrics: Mapped[JSON] = mapped_column(nullable=True)  # Хранит дополнительные метрики в формате JSON
+    signal_strength: Mapped[float | None] = mapped_column(Float, nullable=True)
+    additional_metrics: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
 
     # Связи
     object = relationship("Object", back_populates="telemetry")

@@ -37,5 +37,5 @@ class EventService(BaseService[EventModel]):
     async def get_events_by_timerange(self, start_time: datetime, end_time: datetime) -> list[EventModel]:
         return await self._event_repository.get_by_time_range(start_time, end_time)
 
-    async def get_events_by_coordinates(self, latitude: float, longitude: float, radius: float) -> list[EventModel]:
-        return await self._event_repository.get_by_coordinates(latitude, longitude, radius)
+    async def get_events_by_coordinates(self, latitude: float, longitude: float, radius: float, skip: int = 0, limit: int = 100) -> list[EventModel]:
+        return await self._event_repository.get_by_coordinates(latitude, longitude, radius, skip, limit)

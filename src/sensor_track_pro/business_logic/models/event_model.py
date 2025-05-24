@@ -34,7 +34,7 @@ class EventBase(BaseModel):
 class EventModel(EventBase):
     """Полная модель события."""
 
-    id: int = Field(..., description="Уникальный идентификатор события")
+    id: UUID = Field(..., description="Уникальный идентификатор события")  # исправлено с int на UUID
     created_at: datetime = Field(..., description="Дата и время создания записи о событии")
     updated_at: datetime = Field(..., description="Дата и время последнего обновления")
 

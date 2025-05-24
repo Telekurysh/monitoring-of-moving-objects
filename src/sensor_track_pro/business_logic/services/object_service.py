@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from typing import Any
 from uuid import UUID
 
 from src.sensor_track_pro.business_logic.interfaces.repository.iobject_repo import IObjectRepository
@@ -25,10 +26,14 @@ class ObjectService(BaseService[ObjectModel]):
         return await self._object_repository.get_all(skip, limit, **filters)
 
     async def update_object(self, object_id: UUID, object_data: ObjectBase) -> ObjectModel | None:
-        return await self._object_repository.update(object_id, object_data)
+        return await self._object_repository.update(object_id, object_data.model_dump(exclude_unset=True))
 
     async def delete_object(self, object_id: UUID) -> bool:
         return await self._object_repository.delete(object_id)
 
     async def get_objects_by_type(self, object_type: ObjectType, skip: int = 0, limit: int = 100) -> list[ObjectModel]:
         return await self._object_repository.get_by_type(object_type, skip, limit)
+
+    async def get_objects_count(self, **filters: Any) -> int:
+        """Получает количество объектов, соответствующих фильтрам."""
+        return await self._object_repository.get_count(**filters)

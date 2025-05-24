@@ -23,9 +23,10 @@ class SensorRepository(BaseRepository[Sensor], ISensorRepository):
 
     async def create(self, sensor_data: SensorBase) -> SensorModel:  # type: ignore[override]
         """Создает новый сенсор."""
-        db_sensor = Sensor(**sensor_data.model_dump())
-        await super().create(db_sensor)
-        return SensorModel.model_validate(db_sensor)
+        data = sensor_data.model_dump()
+        db_sensor = Sensor(**data)
+        created_sensor = await super().create(db_sensor)  # сохраняем созданный объект
+        return SensorModel.model_validate(created_sensor)
 
     async def get_by_object_id(
         self,
@@ -52,7 +53,7 @@ class SensorRepository(BaseRepository[Sensor], ISensorRepository):
         """Получает сенсоры определенного типа."""
         query = (
             select(Sensor)
-            .filter(Sensor.type == sensor_type)
+            .filter(Sensor.sensor_type == sensor_type)
             .offset(skip)
             .limit(limit)
         )
@@ -68,7 +69,7 @@ class SensorRepository(BaseRepository[Sensor], ISensorRepository):
         """Получает сенсоры в определенном статусе."""
         query = (
             select(Sensor)
-            .filter(Sensor.status == status)
+            .filter(Sensor.sensor_status == status)
             .offset(skip)
             .limit(limit)
         )
@@ -84,5 +85,10 @@ class SensorRepository(BaseRepository[Sensor], ISensorRepository):
         return [SensorModel.model_validate(s) for s in db_list]
 
     async def update(self, sensor_id: UUID, sensor_data: dict[str, Any]) -> SensorModel | None:  # type: ignore[override]
+        # Переименовываем алиасы в реальные поля модели
+        if "type" in sensor_data:
+            sensor_data["sensor_type"] = sensor_data.pop("type")
+        if "status" in sensor_data:
+            sensor_data["sensor_status"] = sensor_data.pop("status")
         db_sensor = await super().update(sensor_id, sensor_data)
         return SensorModel.model_validate(db_sensor) if db_sensor else None

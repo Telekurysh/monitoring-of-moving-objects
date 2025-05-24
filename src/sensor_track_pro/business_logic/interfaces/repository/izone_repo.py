@@ -14,7 +14,7 @@ class IZoneRepository(ABC):
     """Интерфейс репозитория для работы с зонами мониторинга."""
 
     @abstractmethod
-    async def create(self, zone_data: ZoneBase) -> ZoneModel:
+    async def create_zone(self, zone_data: ZoneBase) -> ZoneModel:
         """
         Создает новую зону мониторинга.
         

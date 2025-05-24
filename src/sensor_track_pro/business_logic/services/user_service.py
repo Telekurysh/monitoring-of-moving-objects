@@ -36,3 +36,11 @@ class UserService(BaseService[UserModel]):
 
     async def change_password(self, user_id: UUID, new_password: str) -> bool:
         return await self._user_repository.change_password(user_id, new_password)
+
+    async def activate_user(self, user_id: UUID) -> bool:
+        """Активирует учетную запись пользователя."""
+        return await self._user_repository.activate_user(user_id)
+
+    async def deactivate_user(self, user_id: UUID) -> bool:
+        """Деактивирует учетную запись пользователя."""
+        return await self._user_repository.deactivate_user(user_id)

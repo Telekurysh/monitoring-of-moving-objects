@@ -24,8 +24,8 @@ class AlertRepository(BaseRepository[Alert], IAlertRepository):  # type: ignore[
     async def create(self, alert_data: AlertBase) -> AlertModel:  # type: ignore[override]
         """Создает новое оповещение."""
         db_alert = Alert(**alert_data.model_dump())
-        await super().create(db_alert)
-        return AlertModel.model_validate(db_alert)
+        created_alert = await super().create(db_alert)
+        return await self.get_by_id(created_alert.id)
 
     async def get_by_event_id(self, event_id: UUID) -> list[AlertModel]:
         """Получает оповещения по ID события."""

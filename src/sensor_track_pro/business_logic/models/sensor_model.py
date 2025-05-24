@@ -12,28 +12,21 @@ from pydantic import Field
 
 class SensorType(StrEnum):
     GPS = "gps"
-    TEMPERATURE = "temperature"
-    HUMIDITY = "humidity"
     FUEL = "fuel"
-    MOTION = "motion"
-    ACCELEROMETER = "accelerometer"
     OTHER = "other"
 
 
 class SensorStatus(StrEnum):
     ACTIVE = "active"
     INACTIVE = "inactive"
-    MAINTENANCE = "maintenance"
-    FAULTY = "faulty"
-    UNKNOWN = "unknown"
-
+   
 
 class SensorBase(BaseModel):
     """Базовая модель датчика."""
     object_id: UUID = Field(..., description="ID объекта, к которому относится датчик")
-    type: SensorType = Field(..., description="Тип датчика")
+    sensor_type: SensorType = Field(..., alias="type", description="Тип датчика")
     location: str | None = Field(..., min_length=1, max_length=100, description="Местоположение датчика")
-    status: SensorStatus = Field(default=SensorStatus.ACTIVE, description="Статус сенсора")
+    sensor_status: SensorStatus = Field(default=SensorStatus.ACTIVE, alias="status", description="Статус сенсора")
 
 
 class SensorModel(SensorBase):

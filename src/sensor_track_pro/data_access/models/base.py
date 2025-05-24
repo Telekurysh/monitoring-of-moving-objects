@@ -2,8 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from datetime import UTC
-from datetime import datetime
+from datetime import datetime  # изменено: убран UTC
 
 from sqlalchemy import Column
 from sqlalchemy import DateTime
@@ -24,5 +23,5 @@ class Base(DeclarativeBase):
         """Автоматически определяет имя таблицы из имени класса."""
         return cls.__name__.lower()
 
-    created_at = Column(DateTime, default=datetime.now(UTC), nullable=False)
-    updated_at = Column(DateTime, default=datetime.now(UTC), onupdate=datetime.now(UTC), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)  # изменено
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)  # изменено

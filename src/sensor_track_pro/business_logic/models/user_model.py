@@ -4,7 +4,6 @@ from __future__ import annotations
 from datetime import datetime
 from enum import StrEnum
 from uuid import UUID
-from uuid import uuid4
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -32,7 +31,7 @@ class UserBase(BaseModel):
 class UserModel(UserBase):
     """Полная модель пользователя."""
 
-    id: UUID = Field(default_factory=uuid4, description="Уникальный идентификатор пользователя")
+    id: UUID  # убран default_factory
     password_hash: str = Field(..., description="Хэш пароля пользователя")
     created_at: datetime = Field(default_factory=datetime.utcnow, description="Дата и время создания пользователя")
     updated_at: datetime = Field(default_factory=datetime.utcnow, description="Дата и время последнего обновления")

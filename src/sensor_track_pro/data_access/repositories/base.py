@@ -43,8 +43,11 @@ class BaseRepository(Generic[ModelType]):
             data = {}
             for col in self._model.__table__.c:  # изменено: .columns -> .c
                 value = getattr(instance, col.name)
+                # Не вставлять id, created_at, updated_at если они None (пусть выставляет БД)
+                if col.name in {"id", "created_at", "updated_at"} and value is None:
+                    continue
                 if isinstance(value, datetime) and value.tzinfo is not None:
-                    value = value.replace(tzinfo=None)
+                    value = value.replace(tzinfo=None)  # приводим к offset-naive
                 data[col.name] = value
             stmt = insert(self._model).values(**data).returning(*self._model.__table__.columns)
             result = await self._session.execute(stmt)
@@ -122,11 +125,11 @@ class BaseRepository(Generic[ModelType]):
             values_to_update = {}
             for key, value in values.items():
                 if isinstance(value, datetime) and value.tzinfo is not None:
-                    value = value.replace(tzinfo=None)
+                    value = value.replace(tzinfo=None)  # приводим к offset-naive
                 values_to_update[key] = value
             # Добавляем автоматическое обновление updated_at, если не задано
             if "updated_at" not in values_to_update:
-                values_to_update["updated_at"] = datetime.now().replace(tzinfo=None)
+                values_to_update["updated_at"] = datetime.utcnow()  # изменено
             stmt = (
                 update(self._model)
                 .where(self._model.id == instance_id)

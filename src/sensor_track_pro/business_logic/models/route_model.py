@@ -40,7 +40,7 @@ class RouteBase(BaseModel):
     name: str | None = Field(None, max_length=100, description="Название маршрута")
     description: str | None = Field(None, max_length=500, description="Описание маршрута")
     points: list[RoutePoint] = Field(default=[], description="Точки маршрута")
-    metadata: dict[str, Any] | None = Field(None, description="Метаданные маршрута")
+    route_metadata: dict[str, Any] | None = Field(None, alias="metadata", description="Метаданные маршрута")
 
 
 class RouteModel(RouteBase):
@@ -50,4 +50,5 @@ class RouteModel(RouteBase):
     updated_at: datetime = Field(default_factory=datetime.utcnow,
                                  description="Дата и время последнего обновления маршрута")
 
-    model_config = ConfigDict(from_attributes=True)
+    # Поле route_metadata (при внешнем виде "metadata") наследуется
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)

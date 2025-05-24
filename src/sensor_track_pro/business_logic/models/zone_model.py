@@ -6,6 +6,7 @@ from enum import StrEnum
 from typing import Any
 from typing import Iterator
 from uuid import UUID
+from uuid import uuid4
 
 from pydantic import BaseModel
 from pydantic import ConfigDict
@@ -29,8 +30,23 @@ class ZoneType(StrEnum):
     POLYGON = "polygon"
 
     @classmethod
+    def _missing_(cls, value):
+        # Позволяет принимать значения Enum без учета регистра
+        if isinstance(value, str):
+            value = value.lower()
+            for member in cls:
+                if member.value == value:
+                    return member
+        return super()._missing_(value)
+
+    @classmethod
     def choices(cls) -> list[str]:
         return [member.value for member in cls]
+
+    @property
+    def db_value(self) -> str:
+        """Значение для записи в БД (нижний регистр)."""
+        return self.value
 
 
 @dataclass(frozen=True, order=True)
@@ -102,10 +118,9 @@ class ZoneBase(BaseModel):
 
 class ZoneModel(ZoneBase):
     """Полная модель зоны."""
-
-    id: UUID = Field(..., description="Уникальный идентификатор зоны")
-    created_at: datetime = Field(..., description="Дата и время создания зоны")
-    updated_at: datetime = Field(..., description="Дата и время последнего обновления зоны")
+    id: UUID = Field(default_factory=uuid4, description="Уникальный идентификатор зоны")
+    created_at: datetime = Field(default_factory=datetime.utcnow, description="Дата и время создания зоны")
+    updated_at: datetime = Field(default_factory=datetime.utcnow, description="Дата и время последнего обновления зоны")
 
     @field_validator("zone_type")
     @classmethod

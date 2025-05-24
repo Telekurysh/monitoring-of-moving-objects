@@ -1,37 +1,38 @@
 -- Определение перечислений
 DROP TYPE IF EXISTS zone_type CASCADE;
-CREATE TYPE zone_type AS ENUM ('circle', 'rectangle', 'polygon');
+CREATE TYPE zone_type AS ENUM ('CIRCLE', 'RECTANGLE', 'POLYGON');
 
 DROP TYPE IF EXISTS sensor_type CASCADE;
--- Пример возможных типов сенсоров
-CREATE TYPE sensor_type AS ENUM ('gps', 'temperature', 'pressure');
+CREATE TYPE sensor_type AS ENUM ('GPS', 'FUEL');
 
 DROP TYPE IF EXISTS sensor_status CASCADE;
 CREATE TYPE sensor_status AS ENUM ('ACTIVE', 'INACTIVE');
 
 DROP TYPE IF EXISTS user_role CASCADE;
-CREATE TYPE user_role AS ENUM ('admin', 'operator', 'analyst');
+CREATE TYPE user_role AS ENUM ('ADMIN', 'OPERATOR', 'ANALYST');
 
 DROP TYPE IF EXISTS event_type CASCADE;
-CREATE TYPE event_type AS ENUM ('move', 'stop', 'zone_entr', 'zone_exit', 'speed_limit', 'sensor_fault', 'other');
+CREATE TYPE event_type AS ENUM ('MOVE', 'STOP', 'ZONE_ENTER', 'ZONE_EXIT', 'SPEED_LIMIT', 'SENSOR_FAULT', 'OTHER');
 
 DROP TYPE IF EXISTS alert_type CASCADE;
-CREATE TYPE alert_type AS ENUM ('zone_exit', 'zone_enter', 'speed_violation', 'sensor_failure', 'disconnection', 'custom');
+CREATE TYPE alert_type AS ENUM ('ZONE_EXIT', 'ZONE_ENTER', 'SPEED_VIOLATION', 'SENSOR_FAILURE', 'DISCONNECTION', 'CUSTOM');
 
 DROP TYPE IF EXISTS alert_severity CASCADE;
-CREATE TYPE alert_severity AS ENUM ('low', 'medium', 'high', 'critical');
+CREATE TYPE alert_severity AS ENUM ('LOW', 'MEDIUM', 'HIGH', 'CRITICAL');
 
 DROP TYPE IF EXISTS route_status CASCADE;
-CREATE TYPE route_status AS ENUM ('planned', 'in_progress', 'completed', 'delayed', 'cancelled');
+CREATE TYPE route_status AS ENUM ('PLANNED', 'IN_PROGRESS', 'COMPLETED', 'DELAYED', 'CANCELLED');
 
 DROP TYPE IF EXISTS object_type CASCADE;
-CREATE TYPE object_type AS ENUM ('vehicle', 'cargo', 'equipment', 'other');
+CREATE TYPE object_type AS ENUM ('VEHICLE', 'CARGO', 'EQUIPMENT', 'OTHER');
 
 CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Таблица пользователей
+DROP TABLE IF EXISTS users CASCADE;
 CREATE TABLE users (
-    id VARCHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username VARCHAR(50) NOT NULL UNIQUE,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
@@ -42,19 +43,21 @@ CREATE TABLE users (
 );
 
 -- Таблица объектов
+DROP TABLE IF EXISTS objects CASCADE;
 CREATE TABLE objects (
-    id VARCHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
-    type object_type NOT NULL,
+    object_type object_type NOT NULL, -- изменено с type на object_type
     description VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
 -- Таблица связи пользователей и объектов
+DROP TABLE IF EXISTS userobjects CASCADE;
 CREATE TABLE userobjects (
-    user_id VARCHAR(36) NOT NULL,
-    object_id VARCHAR(36) NOT NULL,
+    user_id UUID NOT NULL,
+    object_id UUID NOT NULL,
     access_level VARCHAR(50) NOT NULL,
     PRIMARY KEY (user_id, object_id),
     UNIQUE (user_id, object_id),
@@ -63,21 +66,23 @@ CREATE TABLE userobjects (
 );
 
 -- Таблица сенсоров
+DROP TABLE IF EXISTS sensors CASCADE;
 CREATE TABLE sensors (
-    id VARCHAR(36) PRIMARY KEY,
-    object_id VARCHAR(36) NOT NULL,
-    type sensor_type NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    object_id UUID NOT NULL,
+    sensor_type sensor_type NOT NULL,  -- изменено: имя столбца
     location VARCHAR(100),
-    status sensor_status NOT NULL DEFAULT 'ACTIVE',
+    sensor_status sensor_status NOT NULL DEFAULT 'ACTIVE',  -- изменено: имя столбца
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     FOREIGN KEY (object_id) REFERENCES objects(id)
 );
 
 -- Таблица событий
+DROP TABLE IF EXISTS events CASCADE;
 CREATE TABLE events (
-    id SERIAL PRIMARY KEY,
-    sensor_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sensor_id UUID NOT NULL,
     timestamp TIMESTAMP NOT NULL,
     latitude FLOAT NOT NULL,
     longitude FLOAT NOT NULL,
@@ -90,9 +95,10 @@ CREATE TABLE events (
 );
 
 -- Таблица оповещений
+DROP TABLE IF EXISTS alerts CASCADE;
 CREATE TABLE alerts (
-    id VARCHAR(36) PRIMARY KEY,
-    event_id INTEGER NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    event_id UUID NOT NULL,
     alert_type alert_type NOT NULL,
     severity alert_severity NOT NULL,
     message VARCHAR(500) NOT NULL,
@@ -103,8 +109,9 @@ CREATE TABLE alerts (
 );
 
 -- Таблица зон
+DROP TABLE IF EXISTS zones CASCADE;
 CREATE TABLE zones (
-    id VARCHAR(36) PRIMARY KEY,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
     zone_type zone_type NOT NULL,
     coordinates JSON NOT NULL,
@@ -116,9 +123,10 @@ CREATE TABLE zones (
 );
 
 -- Таблица связи объектов и зон
-CREATE TABLE objectzones (
-    object_id VARCHAR(36) NOT NULL,
-    zone_id VARCHAR(36) NOT NULL,
+DROP TABLE IF EXISTS object_zone CASCADE;
+CREATE TABLE object_zone (
+    object_id UUID NOT NULL,
+    zone_id UUID NOT NULL,
     entered_at TIMESTAMP NOT NULL DEFAULT NOW(),
     exited_at TIMESTAMP,
     PRIMARY KEY (object_id, zone_id),
@@ -127,14 +135,15 @@ CREATE TABLE objectzones (
 );
 
 -- Таблица маршрутов
+DROP TABLE IF EXISTS routes CASCADE;
 CREATE TABLE routes (
-    id VARCHAR(36) PRIMARY KEY,
-    object_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    object_id UUID NOT NULL,
     name VARCHAR(100),
     description VARCHAR(500),
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP,
-    status route_status NOT NULL DEFAULT 'planned',
+    status route_status NOT NULL DEFAULT 'PLANNED', -- исправлено значение по умолчанию
     points JSON NOT NULL,
     metadata JSON,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -143,9 +152,10 @@ CREATE TABLE routes (
 );
 
 -- Таблица телеметрии
+DROP TABLE IF EXISTS telemetry CASCADE;
 CREATE TABLE telemetry (
-    id VARCHAR(36) PRIMARY KEY,
-    object_id VARCHAR(36) NOT NULL,
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    object_id UUID NOT NULL,
     timestamp TIMESTAMP NOT NULL,
     signal_strength FLOAT,
     additional_metrics JSON,

@@ -16,7 +16,7 @@ class ZoneService(BaseService[ZoneModel]):
         self._zone_repository = zone_repository
 
     async def create_zone(self, zone_data: ZoneBase) -> ZoneModel:
-        return await self._zone_repository.create(zone_data)
+        return await self._zone_repository.create_zone(zone_data)
 
     async def get_zone(self, zone_id: UUID) -> ZoneModel | None:
         return await self._zone_repository.get_by_id(zone_id)

@@ -47,7 +47,7 @@ DROP TABLE IF EXISTS objects CASCADE;
 CREATE TABLE objects (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
-    object_type object_type NOT NULL, -- изменено с type на object_type
+    object_type object_type NOT NULL,
     description VARCHAR(500),
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW()
@@ -70,9 +70,9 @@ DROP TABLE IF EXISTS sensors CASCADE;
 CREATE TABLE sensors (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     object_id UUID NOT NULL,
-    sensor_type sensor_type NOT NULL,  -- изменено: имя столбца
+    sensor_type sensor_type NOT NULL,
     location VARCHAR(100),
-    sensor_status sensor_status NOT NULL DEFAULT 'ACTIVE',  -- изменено: имя столбца
+    sensor_status sensor_status NOT NULL DEFAULT 'ACTIVE',
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     FOREIGN KEY (object_id) REFERENCES objects(id)
@@ -143,7 +143,7 @@ CREATE TABLE routes (
     description VARCHAR(500),
     start_time TIMESTAMP NOT NULL,
     end_time TIMESTAMP,
-    status route_status NOT NULL DEFAULT 'PLANNED', -- исправлено значение по умолчанию
+    status route_status NOT NULL DEFAULT 'PLANNED',
     points JSON NOT NULL,
     metadata JSON,
     created_at TIMESTAMP NOT NULL DEFAULT NOW(),
@@ -163,3 +163,63 @@ CREATE TABLE telemetry (
     updated_at TIMESTAMP NOT NULL DEFAULT NOW(),
     FOREIGN KEY (object_id) REFERENCES objects(id)
 );
+
+
+
+-- Роль администратора: полный доступ ко всем таблицам
+DROP ROLE IF EXISTS admin_user;
+CREATE ROLE admin_user
+WITH
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN
+    CONNECTION LIMIT -1 PASSWORD 'password_admin';
+GRANT SELECT, INSERT, UPDATE, DELETE ON users, objects, userobjects, sensors, events, alerts, zones, object_zone, routes, telemetry TO admin_user;
+
+-- Роль оператора: доступ к объектам, сенсорам, событиям, оповещениям, маршрутам, телеметрии
+DROP ROLE IF EXISTS operator_user;
+CREATE ROLE operator_user
+WITH
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN
+    CONNECTION LIMIT -1 PASSWORD 'password_operator';
+GRANT SELECT ON objects, sensors, events, alerts, routes, telemetry TO operator_user;
+GRANT INSERT, UPDATE ON events, alerts, routes, telemetry TO operator_user;
+
+-- Роль аналитика: только чтение по основным таблицам
+DROP ROLE IF EXISTS analyst_user;
+CREATE ROLE analyst_user
+WITH
+    NOSUPERUSER NOCREATEDB NOCREATEROLE NOINHERIT LOGIN
+    CONNECTION LIMIT -1 PASSWORD 'password_analyst';
+GRANT SELECT ON objects, sensors, events, alerts, zones, routes, telemetry TO analyst_user;
+
+-- Функция-триггер для деактивации пользователя вместо удаления
+CREATE OR REPLACE FUNCTION deactivate_user_instead_of_delete()
+RETURNS TRIGGER AS $$
+BEGIN
+    UPDATE users SET is_active = FALSE, updated_at = NOW() WHERE id = OLD.id;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Триггер на удаление пользователя
+DROP TRIGGER IF EXISTS trg_deactivate_user_instead_of_delete ON users;
+CREATE TRIGGER trg_deactivate_user_instead_of_delete
+BEFORE DELETE ON users
+FOR EACH ROW
+EXECUTE FUNCTION deactivate_user_instead_of_delete();
+
+-- Тестирование триггера деактивации пользователя
+-- 1. Создать тестового пользователя
+INSERT INTO users (username, email, password_hash, role)
+VALUES ('testuser', 'testuser@example.com', 'hash', 'OPERATOR');
+
+-- 2. Проверить, что пользователь активен
+SELECT id, username, is_active FROM users WHERE username = 'testuser';
+
+-- 3. Попробовать удалить пользователя
+DELETE FROM users WHERE username = 'testuser';
+
+-- 4. Проверить, что пользователь не удалён, а деактивирован
+SELECT id, username, is_active FROM users WHERE username = 'testuser';
+
+-- 5. (Опционально) Удалить тестового пользователя полностью (например, для чистоты тестов)
+DELETE FROM users WHERE username = 'testuser';

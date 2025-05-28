@@ -93,3 +93,10 @@ async def get_zones_containing_point(
     service: ZoneService = _zone_service_dep
 ) -> list[ZoneModel]:
     return await service.get_zones_containing_point(latitude, longitude)
+
+
+@router.get("/map/all", response_model=list[ZoneModel])
+async def get_zones_for_map(
+    service: ZoneService = _zone_service_dep
+) -> list[ZoneModel]:
+    return await service.get_zones_for_map()

@@ -37,5 +37,5 @@ class User(Base):
         "Object",
         secondary="userobject",
         back_populates="users",
-        overlaps="user,user_objects,object_users"
+        overlaps="object_users,user,user_objects,object"
     )

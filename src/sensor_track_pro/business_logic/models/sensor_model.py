@@ -27,6 +27,8 @@ class SensorBase(BaseModel):
     sensor_type: SensorType = Field(..., alias="type", description="Тип датчика")
     location: str | None = Field(..., min_length=1, max_length=100, description="Местоположение датчика")
     sensor_status: SensorStatus = Field(default=SensorStatus.ACTIVE, alias="status", description="Статус сенсора")
+    latitude: float | None = Field(None, description="Широта датчика")
+    longitude: float | None = Field(None, description="Долгота датчика")
 
 
 class SensorModel(SensorBase):

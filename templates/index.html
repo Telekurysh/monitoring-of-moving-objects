@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>SensorTrackPro Interface</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+    <style>
+        #map { height: 600px; width: 100%; }
+        .controls { margin: 10px; }
+    </style>
+</head>
+<body>
+    <h1>Карта мониторинга</h1>
+    <div class="controls">
+        <button id="draw-zones-btn">Отрисовать зоны</button>
+        <button id="draw-objects-btn">Отрисовать объекты</button>
+        <button id="clear-map-btn">Очистить карту</button>
+        <button id="capture-zone-btn">Считать зону</button>
+        <select id="zone-type-select" style="display:none;">
+            <option value="">Выберите тип зоны</option>
+            <option value="circle">Круг</option>
+            <option value="rectangle">Прямоугольник</option>
+            <option value="polygon">Полигон</option>
+        </select>
+    </div>
+    <div id="map"></div>
+    
+    <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+    <script>
+        // Инициализация карты с центром на Москве
+        const map = L.map('map').setView([55.7558, 37.6173], 10);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Группа для зон
+        let zonesLayerGroup = L.layerGroup().addTo(map);
+
+        const btn = document.getElementById('draw-zones-btn');
+        if (!btn) {
+            console.error('Кнопка draw-zones-btn не найдена!');
+        } else {
+            btn.onclick = async function() {
+                console.log('Кнопка нажата');
+                // Очищаем старые зоны
+                zonesLayerGroup.clearLayers();
+                try {
+                    const resp = await fetch('/api/zones/map/all');
+                    if (!resp.ok) {
+                        console.error('Ошибка запроса зон:', resp.status, resp.statusText);
+                        return;
+                    }
+                    const zones = await resp.json();
+                    console.log('Зоны с бэка:', zones);
+
+                    if (!Array.isArray(zones) || zones.length === 0) {
+                        console.warn('Зоны не найдены или пустой массив');
+                        return;
+                    }
+
+                    zones.forEach(zone => {
+                        console.log('Зона:', zone);
+                        let coords = zone.coordinates;
+                        console.log('coordinates:', coords, typeof coords);
+
+                        const type = zone.zone_type.toLowerCase();
+
+                        // POLYGON
+                        if (type === "polygon" && coords && coords.points) {
+                            console.log('Попытка отрисовать POLYGON:', coords.points);
+                            const latlngs = coords.points.map(pt => [pt.latitude, pt.longitude]);
+                            console.log('latlngs:', latlngs);
+                            L.polygon(latlngs, {color: 'blue'}).addTo(zonesLayerGroup).bindPopup(zone.name);
+                        }
+                        // CIRCLE
+                        if (type === "circle" && coords && coords.center) {
+                            console.log('Попытка отрисовать CIRCLE:', coords.center, coords.radius);
+                            console.log('Типы:', typeof coords.center.latitude, typeof coords.center.longitude, typeof coords.radius);
+                            if (
+                                typeof coords.center.latitude === 'number' &&
+                                typeof coords.center.longitude === 'number' &&
+                                typeof coords.radius === 'number'
+                            ) {
+                                L.circle([coords.center.latitude, coords.center.longitude], {
+                                    radius: coords.radius,
+                                    color: 'red',
+                                    fillColor: '#f03',
+                                    fillOpacity: 0.5,
+                                    weight: 3
+                                }).addTo(zonesLayerGroup).bindPopup(zone.name);
+                            } else {
+                                console.error('Некорректные типы для круга:', coords.center, coords.radius);
+                            }
+                        }
+                        // RECTANGLE
+                        if (type === "rectangle" && coords && coords.top_left && coords.bottom_right) {
+                            console.log('Попытка отрисовать RECTANGLE:', coords.top_left, coords.bottom_right);
+                            const tl = coords.top_left;
+                            const br = coords.bottom_right;
+                            if (
+                                typeof tl.latitude === 'number' && typeof tl.longitude === 'number' &&
+                                typeof br.latitude === 'number' && typeof br.longitude === 'number'
+                            ) {
+                                const bounds = [
+                                    [tl.latitude, tl.longitude],
+                                    [br.latitude, br.longitude]
+                                ];
+                                L.rectangle(bounds, {color: 'green'}).addTo(zonesLayerGroup).bindPopup(zone.name);
+                            } else {
+                                console.error('Некорректные типы для прямоугольника:', tl, br);
+                            }
+                        }
+                    });
+                } catch (err) {
+                    console.error('Ошибка при обработке зон:', err);
+                }
+            };
+        }
+
+        // Группа для объектов
+        let objectsLayerGroup = L.layerGroup().addTo(map);
+
+        const btnObjects = document.getElementById('draw-objects-btn');
+        if (!btnObjects) {
+            console.error('Кнопка draw-objects-btn не найдена!');
+        } else {
+            btnObjects.onclick = async function() {
+                console.log('Кнопка объектов нажата');
+                objectsLayerGroup.clearLayers();
+                try {
+                    const resp = await fetch('/api/objects/map/all');
+                    if (!resp.ok) {
+                        console.error('Ошибка запроса объектов:', resp.status, resp.statusText);
+                        return;
+                    }
+                    const objects = await resp.json();
+                    console.log('Объекты с бэка:', objects);
+
+                    if (!Array.isArray(objects) || objects.length === 0) {
+                        console.warn('Объекты не найдены или пустой массив');
+                        return;
+                    }
+
+                    objects.forEach(obj => {
+                        if (
+                            typeof obj.latitude === 'number' &&
+                            typeof obj.longitude === 'number'
+                        ) {
+                            // Формируем HTML-таблицу для popup
+                            const popupHtml = `
+                                <table border="1" style="border-collapse:collapse;">
+                                    <tr><th>Название объекта</th><td>${obj.name ?? ''}</td></tr>
+                                    <tr><th>Местоположение сенсора</th><td>${obj.sensor_location ?? ''}</td></tr>
+                                    <tr><th>Время обновления сенсора</th><td>${obj.sensor_updated_at ? new Date(obj.sensor_updated_at).toLocaleString() : ''}</td></tr>
+                                </table>
+                            `;
+                            L.marker([obj.latitude, obj.longitude])
+                                .addTo(objectsLayerGroup)
+                                .bindPopup(popupHtml);
+                        } else {
+                            console.warn('Некорректные координаты объекта:', obj);
+                        }
+                    });
+                } catch (err) {
+                    console.error('Ошибка при обработке объектов:', err);
+                }
+            };
+        }
+
+        // Кнопка очистки карты
+        const btnClear = document.getElementById('clear-map-btn');
+        if (!btnClear) {
+            console.error('Кнопка clear-map-btn не найдена!');
+        } else {
+            btnClear.onclick = function() {
+                zonesLayerGroup.clearLayers();
+                objectsLayerGroup.clearLayers();
+                console.log('Карта очищена');
+            };
+        }
+
+        // --- Capture Zone Logic ---
+        const btnCapture = document.getElementById('capture-zone-btn');
+        const selectZoneType = document.getElementById('zone-type-select');
+        let captureMode = false;
+        let captureType = null;
+        let tempLayer = null;
+        let tempPoints = [];
+
+        function resetCapture() {
+            captureMode = false;
+            captureType = null;
+            tempPoints = [];
+            if (tempLayer) {
+                map.removeLayer(tempLayer);
+                tempLayer = null;
+            }
+            selectZoneType.style.display = 'none';
+            map.getContainer().style.cursor = '';
+        }
+
+        btnCapture.onclick = function() {
+            selectZoneType.style.display = '';
+            selectZoneType.value = '';
+        };
+
+        selectZoneType.onchange = function() {
+            if (!selectZoneType.value) return;
+            captureMode = true;
+            captureType = selectZoneType.value;
+            tempPoints = [];
+            if (tempLayer) {
+                map.removeLayer(tempLayer);
+                tempLayer = null;
+            }
+            map.getContainer().style.cursor = 'crosshair';
+            alert('Теперь кликните на карту для задания точек зоны. Для круга: центр и точка на окружности. Для прямоугольника: две противоположные угловые точки. Для полигона: минимум три точки, завершите ввод нажатием клавиши "c".');
+        };
+
+        map.on('click', function(e) {
+            if (!captureMode) return;
+            tempPoints.push([e.latlng.lat, e.latlng.lng]);
+
+            // Визуализация текущих точек
+            if (tempLayer) {
+                map.removeLayer(tempLayer);
+                tempLayer = null;
+            }
+            if (captureType === 'circle' && tempPoints.length === 2) {
+                const center = tempPoints[0];
+                const edge = tempPoints[1];
+                const radius = map.distance(center, edge);
+                tempLayer = L.circle(center, {radius, color: 'orange', dashArray: '5,5'}).addTo(map);
+            } else if (captureType === 'rectangle' && tempPoints.length === 2) {
+                tempLayer = L.rectangle([tempPoints[0], tempPoints[1]], {color: 'orange', dashArray: '5,5'}).addTo(map);
+            } else if (captureType === 'polygon' && tempPoints.length >= 1) {
+                tempLayer = L.polygon(tempPoints, {color: 'orange', dashArray: '5,5'}).addTo(map);
+            }
+        });
+
+        // ЗАВЕРШЕНИЕ ПОЛИГОНА ПО КЛАВИШЕ "C" или "С"
+        document.addEventListener('keydown', async function(e) {
+            if (!captureMode) return;
+            if (captureType === 'polygon' && tempPoints.length >= 3) {
+                if (e.key === 'c' || e.key === 'с' || e.key === 'C' || e.key === 'С') {
+                    await saveZone();
+                }
+            }
+        });
+
+        map.on('contextmenu', function(e) {
+            // ПКМ — отмена рисования
+            if (captureMode) {
+                resetCapture();
+            }
+        });
+
+        // Для круга и прямоугольника — завершаем после 2 точек
+        map.on('click', async function(e) {
+            if (!captureMode) return;
+            if ((captureType === 'circle' || captureType === 'rectangle') && tempPoints.length === 2) {
+                await saveZone();
+            }
+        });
+
+        async function saveZone() {
+            let zoneData = {
+                name: prompt('Введите название зоны:') || 'Без названия',
+                zone_type: captureType,
+                description: '',
+            };
+            if (captureType === 'circle' && tempPoints.length === 2) {
+                const center = {latitude: tempPoints[0][0], longitude: tempPoints[0][1]};
+                const edge = {latitude: tempPoints[1][0], longitude: tempPoints[1][1]};
+                const radius = map.distance([center.latitude, center.longitude], [edge.latitude, edge.longitude]);
+                zoneData.coordinates = {
+                    center,
+                    radius
+                };
+            } else if (captureType === 'rectangle' && tempPoints.length === 2) {
+                const top_left = {
+                    latitude: Math.max(tempPoints[0][0], tempPoints[1][0]),
+                    longitude: Math.min(tempPoints[0][1], tempPoints[1][1])
+                };
+                const bottom_right = {
+                    latitude: Math.min(tempPoints[0][0], tempPoints[1][0]),
+                    longitude: Math.max(tempPoints[0][1], tempPoints[1][1])
+                };
+                zoneData.coordinates = {
+                    top_left,
+                    bottom_right
+                };
+            } else if (captureType === 'polygon' && tempPoints.length >= 3) {
+                zoneData.coordinates = {
+                    points: tempPoints.map(([lat, lng]) => ({latitude: lat, longitude: lng}))
+                };
+            } else {
+                alert('Недостаточно точек для создания зоны!');
+                return;
+            }
+
+            // Отправка на backend
+            try {
+                const resp = await fetch('/api/zones/', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(zoneData)
+                });
+                if (resp.ok) {
+                    alert('Зона успешно сохранена!');
+                    resetCapture();
+                } else {
+                    const err = await resp.text();
+                    alert('Ошибка сохранения зоны: ' + err);
+                }
+            } catch (err) {
+                alert('Ошибка сети: ' + err);
+            }
+        }
+    </script>
+</body>
+</html>

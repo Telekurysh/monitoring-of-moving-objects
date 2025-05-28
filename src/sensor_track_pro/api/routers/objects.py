@@ -86,3 +86,10 @@ async def get_objects_by_type(
     service: ObjectService = _object_service_dep
 ) -> list[ObjectModel]:
     return await service.get_objects_by_type(object_type, skip, limit)
+
+
+@router.get("/map/all")
+async def get_objects_for_map(
+    service: ObjectService = _object_service_dep
+) -> list[dict]:
+    return await service.get_objects_for_map()

@@ -59,6 +59,12 @@ class ZoneRepository(BaseRepository[Zone], IZoneRepository):  # type: ignore[mis
         result = await self._session.execute(query)
         return [ZoneModel.model_validate(zone) for zone in result.scalars().all()]
 
+    async def get_all_for_map(self) -> list[ZoneModel]:
+        """Получить все зоны для карты."""
+        query = select(Zone)
+        result = await self._session.execute(query)
+        return [ZoneModel.model_validate(zone) for zone in result.scalars().all()]
+
     def _coordinates_to_geometry(self, coordinates: Any) -> str:
         """Преобразует координаты в WKT-формат для PostgreSQL."""
         # coordinates - это Pydantic-модель: CircleZone, RectangleZone или PolygoneZone

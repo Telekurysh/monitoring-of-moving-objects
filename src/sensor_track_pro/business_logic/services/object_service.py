@@ -37,3 +37,9 @@ class ObjectService(BaseService[ObjectModel]):
     async def get_objects_count(self, **filters: Any) -> int:
         """Получает количество объектов, соответствующих фильтрам."""
         return await self._object_repository.get_count(**filters)
+
+    async def get_objects_for_map(self) -> list[dict]:
+        """
+        Возвращает список объектов с координатами (по первому активному сенсору).
+        """
+        return await self._object_repository.get_all_for_map()

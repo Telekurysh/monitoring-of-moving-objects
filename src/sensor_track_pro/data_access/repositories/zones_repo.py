@@ -85,11 +85,20 @@ class ZoneRepository(BaseRepository[Zone], IZoneRepository):  # type: ignore[mis
             if not center or radius is None:
                 raise ValueError("Для круга требуются центр и радиус")
             import math
+            # Переводим радиус из метров в градусы (очень грубо, для малых радиусов)
+            # 1 градус широты ~ 111320 м, долгота зависит от широты
+            lat = center.latitude
+            lon = center.longitude
+            earth_radius = 6378137  # радиус Земли в метрах
             points = []
-            for i in range(32):
-                angle = 2 * math.pi * i / 32
-                x = center.longitude + radius * math.cos(angle)
-                y = center.latitude + radius * math.sin(angle)
+            num_points = 64  # больше точек — круг плавнее
+            for i in range(num_points):
+                angle = 2 * math.pi * i / num_points
+                # Считаем смещение в градусах
+                dlat = (radius / earth_radius) * (180 / math.pi) * math.sin(angle)
+                dlon = (radius / (earth_radius * math.cos(math.radians(lat)))) * (180 / math.pi) * math.cos(angle)
+                y = lat + dlat
+                x = lon + dlon
                 points.append(f"{x} {y}")
             points.append(points[0])
             points_str = ", ".join(points)

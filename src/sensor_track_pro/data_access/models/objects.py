@@ -26,6 +26,7 @@ object_zone = Table(
     metadata,
     Column("object_id", UUID(as_uuid=True), ForeignKey("objects.id", ondelete="CASCADE"), primary_key=True),
     Column("zone_id", UUID(as_uuid=True), ForeignKey("zones.id", ondelete="CASCADE"), primary_key=True),
+    Column("exited_at", String, nullable=True),  # добавлено поле exited_at (используйте DateTime если нужно)
 )
 
 

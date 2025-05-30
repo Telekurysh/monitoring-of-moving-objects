@@ -54,8 +54,8 @@ CREATE TABLE objects (
 );
 
 -- Таблица связи пользователей и объектов
-DROP TABLE IF EXISTS userobjects CASCADE;
-CREATE TABLE userobjects (
+DROP TABLE IF EXISTS userobject CASCADE;
+CREATE TABLE userobject (
     user_id UUID NOT NULL,
     object_id UUID NOT NULL,
     access_level VARCHAR(50) NOT NULL,
@@ -196,13 +196,14 @@ BEFORE DELETE ON users
 FOR EACH ROW
 EXECUTE FUNCTION deactivate_user_instead_of_delete();
 
+DROP FUNCTION IF EXISTS update_object_zone_on_sensor_change();
 -- Функция для обновления object_zone при изменении координат сенсора
 CREATE OR REPLACE FUNCTION update_object_zone_on_sensor_change()
 RETURNS TRIGGER AS $$
 DECLARE
     sensor_point Geometry(POINT, 4326);
     zone_rec RECORD;
-    object_id UUID;
+    v_object_id UUID;  -- изменено имя переменной
 BEGIN
     -- Если координаты не заданы, ничего не делаем
     IF (NEW.latitude IS NULL OR NEW.longitude IS NULL) THEN
@@ -210,7 +211,7 @@ BEGIN
     END IF;
 
     -- Получаем объект, к которому привязан сенсор
-    object_id := NEW.object_id;
+    v_object_id := NEW.object_id;
 
     -- Создаём геометрию точки сенсора
     sensor_point := ST_SetSRID(ST_MakePoint(NEW.longitude, NEW.latitude), 4326);
@@ -221,7 +222,7 @@ BEGIN
         -- Если уже есть активная запись object_zone, ничего не делаем
         IF EXISTS (
             SELECT 1 FROM object_zone
-            WHERE object_id = object_id AND zone_id = zone_rec.id AND exited_at IS NULL
+            WHERE object_id = v_object_id AND zone_id = zone_rec.id AND exited_at IS NULL
         ) THEN
             CONTINUE;
         END IF;
@@ -229,15 +230,15 @@ BEGIN
         -- Если была запись с exited_at, обновляем её (ре-энтри)
         IF EXISTS (
             SELECT 1 FROM object_zone
-            WHERE object_id = object_id AND zone_id = zone_rec.id AND exited_at IS NOT NULL
+            WHERE object_id = v_object_id AND zone_id = zone_rec.id AND exited_at IS NOT NULL
         ) THEN
             UPDATE object_zone
             SET entered_at = NOW(), exited_at = NULL
-            WHERE object_id = object_id AND zone_id = zone_rec.id;
+            WHERE object_id = v_object_id AND zone_id = zone_rec.id;
         ELSE
             -- Иначе создаём новую запись
             INSERT INTO object_zone(object_id, zone_id, entered_at, exited_at)
-            VALUES (object_id, zone_rec.id, NOW(), NULL)
+            VALUES (v_object_id, zone_rec.id, NOW(), NULL)
             ON CONFLICT (object_id, zone_id) DO NOTHING;
         END IF;
     END LOOP;
@@ -245,7 +246,7 @@ BEGIN
     -- Теперь обработаем выход из зон: если были активные object_zone, но теперь сенсор вне зоны, ставим exited_at
     FOR zone_rec IN
         SELECT oz.zone_id FROM object_zone oz
-        WHERE oz.object_id = object_id AND oz.exited_at IS NULL
+        WHERE oz.object_id = v_object_id AND oz.exited_at IS NULL
         AND NOT EXISTS (
             SELECT 1 FROM zones z
             WHERE z.id = oz.zone_id AND ST_Contains(z.boundary_polygon, sensor_point)
@@ -253,7 +254,7 @@ BEGIN
     LOOP
         UPDATE object_zone
         SET exited_at = NOW()
-        WHERE object_id = object_id AND zone_id = zone_rec.zone_id AND exited_at IS NULL;
+        WHERE object_id = v_object_id AND zone_id = zone_rec.zone_id AND exited_at IS NULL;
     END LOOP;
 
     RETURN NEW;

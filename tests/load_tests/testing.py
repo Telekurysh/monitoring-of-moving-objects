@@ -443,6 +443,8 @@ class LoadTester:
         
         plt.show()
 
+BATCH_SIZES_TO_TEST = [10, 30, 50, 80, 100]
+
 async def main():
     """Главная функция"""
     parser = argparse.ArgumentParser(description='Нагрузочное тестирование базы данных датчиков')
@@ -458,6 +460,7 @@ async def main():
     parser.add_argument('--batch-size', type=int, default=100, help='Размер батча записей')
     parser.add_argument('--batch-interval', type=int, default=100, help='Интервал между батчами (мс)')
     parser.add_argument('--zones', type=int, default=50, help='Количество зон')
+    parser.add_argument('--compare-batch-sizes', action='store_true', help='Сравнить разные размеры батча')
     
     args = parser.parse_args()
     
@@ -477,6 +480,30 @@ async def main():
         num_zones=args.zones
     )
     
+    # Если выбран режим сравнения размеров батча
+    if getattr(args, "compare_batch_sizes", False):
+        all_results = {}
+        all_metrics = {}
+        for batch_size in BATCH_SIZES_TO_TEST:
+            logger.info(f"\n=== Тестирование с batch_size={batch_size} ===")
+            config.records_per_batch = batch_size
+            tester = LoadTester(config)
+            results = await tester.run_load_test()
+            all_results[batch_size] = results
+            all_metrics[batch_size] = tester.metrics
+        # Сравнительный график
+        plot_batch_size_comparison(all_metrics, all_results)
+        # Вывод результатов
+        logger.info("\n=== Сравнительные результаты ===")
+        for batch_size in BATCH_SIZES_TO_TEST:
+            logger.info(f"\nBatch size: {batch_size}")
+            for key, value in all_results[batch_size].items():
+                if isinstance(value, float):
+                    logger.info(f"{key}: {value:.2f}")
+                else:
+                    logger.info(f"{key}: {value}")
+        return
+
     # Создание и запуск тестера
     tester = LoadTester(config)
     
@@ -514,6 +541,96 @@ async def main():
     except Exception as e:
         logger.error(f"Ошибка выполнения теста: {e}")
         raise
+
+def plot_batch_size_comparison(all_metrics, all_results):
+    """Построение сравнительных графиков по разным размерам батча"""
+    import matplotlib.pyplot as plt
+    import numpy as np
+
+    plt.style.use('seaborn-v0_8')
+    fig, axes = plt.subplots(2, 2, figsize=(16, 12))
+    fig.suptitle('Сравнение разных batch_size', fontsize=16, fontweight='bold')
+
+    colors = ['b', 'g', 'r', 'c', 'm']
+    for idx, batch_size in enumerate(sorted(all_metrics.keys())):
+        metrics = all_metrics[batch_size]
+        if not metrics:
+            continue
+        timestamps = [m.timestamp for m in metrics]
+        start_time = min(timestamps)
+        relative_times = [(t - start_time) for t in timestamps]
+        write_times = [m.write_time_ms for m in metrics]
+        cpu_usage = [m.cpu_usage for m in metrics]
+        memory_usage = [m.memory_usage_mb for m in metrics]
+        records_written = [m.records_written for m in metrics]
+
+        label = f'batch={batch_size}'
+        color = colors[idx % len(colors)]
+
+        axes[0, 0].plot(relative_times, write_times, label=label, color=color, alpha=0.7)
+        axes[0, 1].plot(relative_times, cpu_usage, label=label, color=color, alpha=0.7)
+        axes[1, 0].plot(relative_times, memory_usage, label=label, color=color, alpha=0.7)
+        axes[1, 1].plot(relative_times, records_written, label=label, color=color, alpha=0.7)
+
+    axes[0, 0].set_title('Время записи батча')
+    axes[0, 0].set_xlabel('Время (сек)')
+    axes[0, 0].set_ylabel('Время записи (мс)')
+    axes[0, 0].grid(True, alpha=0.3)
+    axes[0, 0].legend()
+
+    axes[0, 1].set_title('Загрузка CPU')
+    axes[0, 1].set_xlabel('Время (сек)')
+    axes[0, 1].set_ylabel('CPU (%)')
+    axes[0, 1].grid(True, alpha=0.3)
+    axes[0, 1].legend()
+
+    axes[1, 0].set_title('Использование памяти')
+    axes[1, 0].set_xlabel('Время (сек)')
+    axes[1, 0].set_ylabel('Память (МБ)')
+    axes[1, 0].grid(True, alpha=0.3)
+    axes[1, 0].legend()
+
+    axes[1, 1].set_title('Записи в батче')
+    axes[1, 1].set_xlabel('Номер батча')
+    axes[1, 1].set_ylabel('Количество записей')
+    axes[1, 1].grid(True, alpha=0.3)
+    axes[1, 1].legend()
+
+    plt.tight_layout()
+    plt.show()
+
+    # --- Дополнительные сравнительные графики по batch size ---
+    batch_sizes = sorted(all_results.keys())
+    throughputs = [all_results[bs].get('throughput_records_per_second', 0) for bs in batch_sizes]
+    avg_write_times = [all_results[bs].get('avg_write_time_ms', 0) for bs in batch_sizes]
+    error_rates = [all_results[bs].get('error_rate_percent', 0) for bs in batch_sizes]
+
+    fig2, axes2 = plt.subplots(1, 3, figsize=(18, 5))
+    fig2.suptitle('Сравнение batch size: итоговые метрики', fontsize=15, fontweight='bold')
+
+    # Пропускная способность
+    axes2[0].plot(batch_sizes, throughputs, marker='o')
+    axes2[0].set_title('Пропускная способность')
+    axes2[0].set_xlabel('Batch size')
+    axes2[0].set_ylabel('Записей/сек')
+    axes2[0].grid(True, alpha=0.3)
+
+    # Среднее время записи
+    axes2[1].plot(batch_sizes, avg_write_times, marker='o', color='orange')
+    axes2[1].set_title('Среднее время записи батча')
+    axes2[1].set_xlabel('Batch size')
+    axes2[1].set_ylabel('Время (мс)')
+    axes2[1].grid(True, alpha=0.3)
+
+    # Error rate
+    axes2[2].plot(batch_sizes, error_rates, marker='o', color='red')
+    axes2[2].set_title('Error rate')
+    axes2[2].set_xlabel('Batch size')
+    axes2[2].set_ylabel('Ошибки (%)')
+    axes2[2].grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    plt.show()
 
 if __name__ == "__main__":
     asyncio.run(main())

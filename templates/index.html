@@ -46,13 +46,14 @@
                 // Очищаем старые зоны
                 zonesLayerGroup.clearLayers();
                 try {
-                    const resp = await fetch('/api/zones/map/all');
+                    const resp = await fetch('{{ api_prefix }}/zones/');
                     if (!resp.ok) {
                         console.error('Ошибка запроса зон:', resp.status, resp.statusText);
                         return;
                     }
-                    const zones = await resp.json();
-                    console.log('Зоны с бэка:', zones);
+                    const raw = await resp.json();
+                    console.log('Зоны с бэка (raw):', raw);
+                    const zones = Array.isArray(raw) ? raw : (raw.items ?? []);
 
                     if (!Array.isArray(zones) || zones.length === 0) {
                         console.warn('Зоны не найдены или пустой массив');
@@ -129,13 +130,15 @@
                 console.log('Кнопка объектов нажата');
                 objectsLayerGroup.clearLayers();
                 try {
-                    const resp = await fetch('/api/objects/map/all');
+                    // Для карты используем специальный endpoint, возвращающий координаты сенсоров
+                    const resp = await fetch('{{ api_prefix }}/objects/map/all');
                     if (!resp.ok) {
                         console.error('Ошибка запроса объектов:', resp.status, resp.statusText);
                         return;
                     }
-                    const objects = await resp.json();
-                    console.log('Объекты с бэка:', objects);
+                    const raw = await resp.json();
+                    console.log('Объекты с бэка (raw):', raw);
+                    const objects = Array.isArray(raw) ? raw : (raw.items ?? []);
 
                     if (!Array.isArray(objects) || objects.length === 0) {
                         console.warn('Объекты не найдены или пустой массив');
@@ -302,7 +305,7 @@
 
             // Отправка на backend
             try {
-                const resp = await fetch('/api/zones/', {
+                const resp = await fetch('{{ api_prefix }}/zones/', {
                     method: 'POST',
                     headers: {'Content-Type': 'application/json'},
                     body: JSON.stringify(zoneData)

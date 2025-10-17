@@ -36,6 +36,9 @@ dependencies = [
     "logging (>=0.4.9.6,<0.5.0.0)",
     "plaster-yaml (>=3.0.0,<4.0.0)",
     "jinja2 (>=3.1.6,<4.0.0)",
+    "allure-pytest (>=2.15.0,<3.0.0)",
+    "pytest-xdist (>=3.8.0,<4.0.0)",
+    "pytest-randomly (>=4.0.1,<5.0.0)",
 ]
 
 
@@ -111,6 +114,7 @@ disable_error_code = [
 ]
 [tool.poetry.group.dev.dependencies]
 pytest-asyncio = "^0.23.6"
+allure-pytest = "^2.11.0"
 
 
 [tool.ruff]

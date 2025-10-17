@@ -5,8 +5,9 @@ from pydantic_settings import BaseSettings
 
 class APISettings(BaseSettings):
     api_v1_prefix: str = "/api/v1"
+    api_v2_prefix: str = "/api/v2"
     project_name: str = "SensorTrackPro"
-    version: str = "1.0.0"
+    version: str = "1.0.1"
     debug: bool = False
     
     # CORS

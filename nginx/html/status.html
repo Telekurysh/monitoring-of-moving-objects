@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Server status</title>
+  <link rel="stylesheet" href="/status.css">
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Состояние сервера</h1>
+      <p class="subtitle">Сводка метрик и статуса сервисов</p>
+    </header>
+
+    <section class="cards">
+      <article class="card">
+        <h2>NGINX</h2>
+        <pre id="nginx-raw" class="mono">—</pre>
+      </article>
+
+      <article class="card">
+        <h2>API</h2>
+        <div class="status-pill" id="api-status">—</div>
+        <div class="small">OpenAPI: <a href="/api/v1/openapi.json">v1</a> • <a href="/api/v2/openapi.json">v2</a></div>
+      </article>
+
+      <article class="card">
+        <h2>Database</h2>
+        <div class="status-pill" id="db-status">—</div>
+        <div class="small">Просмотр: <a href="/admin">Adminer</a></div>
+      </article>
+    </section>
+
+    <!-- <section class="chart">
+      <h3>Запросы (пример)</h3>
+      <div id="sparkline" class="sparkline" aria-hidden></div>
+    </section> -->
+
+    <footer class="footer">
+      <small>Обновлено: <span id="updated">—</span></small>
+    </footer>
+  </main>
+
+  <script src="/status.js"></script>
+</body>
+</html>

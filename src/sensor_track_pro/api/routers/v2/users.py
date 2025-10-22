@@ -51,13 +51,18 @@ async def get_user(
     return user
 
 
-@router.get("/", response_model=list[UserModel])
+@router.get("/")
 async def get_users(
     skip: int = Query(0, ge=0),
     limit: int = Query(100, ge=1),
     service: UserService = _user_service_dep
-) -> list[UserModel]:
-    return await service.get_users(skip=skip, limit=limit)
+) -> dict:
+    """Return users wrapped in a JSON object instead of a raw list.
+
+    Response format: {"users": [...]}.
+    """
+    users = await service.get_users(skip=skip, limit=limit)
+    return {"users": users}
 
 
 @router.put("/{user_id}", response_model=UserModel)
@@ -76,8 +81,7 @@ async def update_user(
         raise HTTPException(status_code=404, detail="User not found")
     return user
 
-
-@router.delete("/{user_id}", status_code=HTTP_204_NO_CONTENT, responses={404: {"description": "Alert not found"}})
+# @router.delete("/{user_id}", status_code=HTTP_204_NO_CONTENT, responses={404: {"description": "User not found"}})
 async def delete_user(
     user_id: UUID,
     service: UserService = _user_service_dep
@@ -117,3 +121,22 @@ async def set_user_status(
     if not ok:
         raise HTTPException(status_code=404, detail="User not found")
     return {"status": "success"}
+
+
+# Temporary debug endpoint: returns repository checks for a given user id
+@router.get("/debug/{user_id}")
+async def debug_user_checks(
+    user_id: UUID,
+    session: AsyncSession = _db_dep
+) -> dict:
+    repo = UserRepository(session)
+    exists_flag = await repo.exists(user_id)
+    by_id = await repo.get_by_id(user_id)
+    return {
+        "exists": exists_flag,
+        "get_by_id": None if by_id is None else {
+            "id": str(by_id.id),
+            "username": getattr(by_id, 'username', None),
+            "email": getattr(by_id, 'email', None),
+        }
+    }

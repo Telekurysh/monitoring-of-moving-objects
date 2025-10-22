@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     db_host: str = Field(default="localhost", description="Database host")
     db_port: int = Field(default=5432, description="Database port")
     db_user: str = Field(default="mihailmamaev", description="Database user")
+    db_password: str = Field(default="", description="Database password")
     db_name: str = Field(default="sensor", description="Database name")
     
     # Application settings

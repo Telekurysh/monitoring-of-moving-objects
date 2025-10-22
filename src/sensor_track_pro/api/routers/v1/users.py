@@ -77,7 +77,7 @@ async def update_user(
     return user
 
 
-@router.delete("/{user_id}", status_code=HTTP_204_NO_CONTENT, responses={404: {"description": "Alert not found"}})
+@router.delete("/{user_id}", status_code=HTTP_204_NO_CONTENT, responses={404: {"description": "User not found"}})
 async def delete_user(
     user_id: UUID,
     service: UserService = _user_service_dep

@@ -100,9 +100,9 @@ class UserRepository(BaseRepository[User], IUserRepository):
         db_user = await super().update(user_id, user_data)
         return UserModel.model_validate(db_user) if db_user else None
 
-    async def delete(self, user_id: UUID) -> bool:
-        """Удаляет пользователя."""
-        return await super().delete(user_id)
+    # async def delete(self, user_id: UUID) -> bool:
+    #     """Удаляет пользователя."""
+    #     return await super().delete(user_id)
     
     async def activate_user(self, user_id: UUID) -> bool:
         updated_user = await self.update(user_id, {"is_active": True})

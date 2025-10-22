@@ -18,8 +18,10 @@ _engine = None
 def get_async_engine() -> AsyncEngine:
     global _engine
     if (_engine is None):
+        # include password if provided
+        password_segment = f":{settings.db_password}" if settings.db_password else ""
         _engine = create_async_engine(
-            f"postgresql+asyncpg://{settings.db_user}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
+            f"postgresql+asyncpg://{settings.db_user}{password_segment}@{settings.db_host}:{settings.db_port}/{settings.db_name}",
             echo=settings.debug,
             pool_pre_ping=True,
             pool_size=5,

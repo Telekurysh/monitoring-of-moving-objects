@@ -38,3 +38,7 @@ class ZoneService(BaseService[ZoneModel]):
 
     async def get_zones_for_object(self, object_id: UUID) -> list[ZoneModel]:
         return await self._zone_repository.get_zones_for_object(object_id)
+
+    async def get_zones_for_map(self) -> list[ZoneModel]:
+        """Получить все зоны для карты."""
+        return await self._zone_repository.get_all_for_map()

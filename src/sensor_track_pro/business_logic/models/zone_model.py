@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from enum import StrEnum
 from typing import Any
@@ -13,6 +12,7 @@ from pydantic import ConfigDict
 from pydantic import Field
 from pydantic import ValidationInfo
 from pydantic import field_validator
+from pydantic.dataclasses import dataclass
 
 
 # Constants for geographical coordinates

@@ -26,6 +26,7 @@ object_zone = Table(
     metadata,
     Column("object_id", UUID(as_uuid=True), ForeignKey("objects.id", ondelete="CASCADE"), primary_key=True),
     Column("zone_id", UUID(as_uuid=True), ForeignKey("zones.id", ondelete="CASCADE"), primary_key=True),
+    Column("exited_at", String, nullable=True),  # добавлено поле exited_at (используйте DateTime если нужно)
 )
 
 
@@ -44,7 +45,6 @@ class Object(Base):
 
     # Связи с использованием строковых ссылок
     sensors = relationship("Sensor", back_populates="object", cascade="all, delete-orphan")
-    telemetry = relationship("Telemetry", back_populates="object", cascade="all, delete-orphan")
     routes = relationship("Route", back_populates="object", cascade="all, delete-orphan")
     # Исправлено: используем Table object_zone
     zones = relationship("Zone", secondary=object_zone, back_populates="objects", overlaps="object_zones")

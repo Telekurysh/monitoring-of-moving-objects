@@ -28,6 +28,8 @@ class Sensor(Base):
     sensor_type: Mapped[SensorType] = mapped_column("sensor_type", Enum(SensorType, name="sensor_type"), nullable=False)
     location = Column(String(100))
     sensor_status: Mapped[SensorStatus] = mapped_column("sensor_status", Enum(SensorStatus, name="sensor_status"), nullable=False)
+    latitude: Mapped[float | None] = mapped_column("latitude", nullable=True)
+    longitude: Mapped[float | None] = mapped_column("longitude", nullable=True)
 
     # Добавляем свойства для поддержки alias в Pydantic модели
     @property

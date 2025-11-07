@@ -135,3 +135,12 @@ class IZoneRepository(ABC):
         Returns:
             Список зон объекта
         """
+
+    @abstractmethod
+    async def get_all_for_map(self) -> list[ZoneModel]:
+        """
+        Получает все зоны для отображения на карте.
+        
+        Returns:
+            Список зон (координаты, тип и т.д.)
+        """

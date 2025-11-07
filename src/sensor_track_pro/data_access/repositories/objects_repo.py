@@ -57,3 +57,39 @@ class ObjectRepository(BaseRepository[Object], IObjectRepository):  # type: igno
                 query = query.filter(getattr(Object, field) == value)
         result = await self._session.execute(query)
         return len(result.scalars().all())
+
+    async def get_all_for_map(self) -> list[dict]:
+        """
+        Возвращает список объектов с координатами (по первому активному сенсору),
+        а также location и updated_at сенсора.
+        """
+        from src.sensor_track_pro.data_access.models.sensors import Sensor
+        query = select(Object)
+        result = await self._session.execute(query)
+        objects = result.scalars().all()
+        objects_for_map = []
+        for obj in objects:
+            # Получаем первый активный сенсор с координатами
+            sensor_query = (
+                select(Sensor)
+                .filter(
+                    Sensor.object_id == obj.id,
+                    Sensor.latitude.isnot(None),
+                    Sensor.longitude.isnot(None),
+                    Sensor.sensor_status == "active"
+                )
+                .order_by(Sensor.updated_at.desc())
+                .limit(1)
+            )
+            sensor_result = await self._session.execute(sensor_query)
+            sensor = sensor_result.scalar_one_or_none()
+            if sensor:
+                objects_for_map.append({
+                    "id": str(obj.id),
+                    "name": obj.name,
+                    "latitude": sensor.latitude,
+                    "longitude": sensor.longitude,
+                    "sensor_location": sensor.location,
+                    "sensor_updated_at": sensor.updated_at.isoformat() if sensor.updated_at else None,
+                })
+        return objects_for_map

@@ -157,10 +157,10 @@ class BaseRepository(Generic[ModelType]):
         """
         try:
             stmt = delete(self._model).where(self._model.id == instance_id)
-            result = await self._session.execute(stmt)
+            await self._session.execute(stmt)
             await self._session.flush()
-            await self._session.commit()  # добавлено commit
-            return (result.rowcount or 0) > 0  # изменено
+            await self._session.commit()
+            return True
         except Exception as e:
             raise Exception(
                 f"Ошибка удаления {self._model.__name__} с id {instance_id}: {e!s}"

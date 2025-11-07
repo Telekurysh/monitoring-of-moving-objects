@@ -101,3 +101,11 @@ class IObjectRepository(ABC):
         Returns:
             Количество объектов
         """
+
+    @abstractmethod
+    async def get_all_for_map(self) -> list[dict]:
+        """
+        Получает список объектов с координатами (по первому активному сенсору).
+        Returns:
+            Список словарей: {id, name, latitude, longitude, sensor_location, sensor_updated_at}
+        """

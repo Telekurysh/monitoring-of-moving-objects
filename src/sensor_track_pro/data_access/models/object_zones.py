@@ -7,7 +7,6 @@ from datetime import datetime
 from sqlalchemy import DateTime
 from sqlalchemy import ForeignKey
 from sqlalchemy import Index
-from sqlalchemy import String
 from sqlalchemy import UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declared_attr
@@ -19,17 +18,14 @@ from src.sensor_track_pro.data_access.models.base import Base
 
 
 class ObjectZone(Base):
-    """Модель связи объекта с зоной."""
-    # Эта модель используется для истории входа/выхода, не для secondary relationship
+    """Модель связи объекта с зоной (история входа/выхода)."""
 
     @declared_attr.directive
     def __tablename__(self) -> str:
         return "object_zone"
 
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    name: Mapped[str] = mapped_column(String)  # явное указание типа
     object_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("objects.id"), primary_key=True)
-    zone_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("zones.id"), primary_key=True)  # исправлено
+    zone_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("zones.id"), primary_key=True)
     entered_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     exited_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

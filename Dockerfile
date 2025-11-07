@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Poetry via pip (проще и надежнее)
+# Install Poetry via pip
 RUN pip install --upgrade pip
 RUN pip install poetry
 

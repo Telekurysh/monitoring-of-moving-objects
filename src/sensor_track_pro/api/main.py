@@ -5,7 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi import Request
 
 # Импорты для v1
@@ -38,6 +38,44 @@ app = FastAPI(
     redoc_url=None,
     openapi_url=None,
 )
+
+# add instance header so responses indicate which container served the request
+@app.middleware("http")
+async def add_instance_header(request: Request, call_next):
+    response = await call_next(request)
+    try:
+        import socket
+        instance_name = os.environ.get("INSTANCE_NAME") or socket.gethostname()
+        response.headers["X-Instance"] = instance_name
+    except Exception:
+        pass
+    return response
+
+# Handle database permission errors (e.g. write attempted on read-only user/replica)
+try:
+    import asyncpg
+    _AsyncPGError = asyncpg.PostgresError
+except Exception:
+    _AsyncPGError = None
+
+
+@app.exception_handler(Exception)
+async def general_exception_handler(request: Request, exc: Exception):
+    # If this is a postgres permission error, return a friendly 'write to read-only' response
+    msg = str(exc)
+    if _AsyncPGError is not None and isinstance(exc, _AsyncPGError):
+        lower = msg.lower()
+        if "permission denied" in lower or "read-only" in lower or "insufficient" in lower:
+            return JSONResponse(status_code=403, content={"detail": "Write attempted on read-only DB instance"})
+        return JSONResponse(status_code=500, content={"detail": "Database error", "error": msg})
+
+    # Fallback: if the message contains permission-related text, transform it
+    lower = msg.lower()
+    if "permission denied" in lower or "read-only" in lower or "insufficient" in lower:
+        return JSONResponse(status_code=403, content={"detail": "Write attempted on read-only DB instance"})
+
+    # otherwise propagate as 500
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 # Create sub-applications for v1 and v2 so each has its own documentation pages
 app_v1 = FastAPI(
@@ -106,5 +144,17 @@ async def interface(request: Request) -> HTMLResponse:
 
 
 # Mount sub-applications so their docs are available at /api/v1/docs and /api/v2/docs
+# Health endpoints for mounted sub-applications. These return 200 for
+# <prefix>/health (used by proxies and healthchecks). When the mirror
+# proxy preserves the prefix, /mirror/api/v1/health will reach this
+# handler and return ok instead of 404.
+@app_v1.get("/health", include_in_schema=False)
+async def health_v1() -> dict[str, str]:
+    return {"status": "ok"}
+
+@app_v2.get("/health", include_in_schema=False)
+async def health_v2() -> dict[str, str]:
+    return {"status": "ok"}
+
 app.mount(api_settings.api_v1_prefix, app_v1)
 app.mount(api_settings.api_v2_prefix, app_v2)

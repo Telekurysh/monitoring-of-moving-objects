@@ -1,30 +1,110 @@
 services:
-  app:
-    build: .
-    container_name: sensortrack_app
+  # PostgreSQL master (primary)
+  db_master:
+    image: bitnami/postgresql
+    container_name: sensortrack_db_master
     restart: unless-stopped
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@db:5432/sensortrack
-      - DB_HOST=db
-      - DB_PORT=5432
-      - DB_USER=postgres
-      - DB_NAME=sensortrack
-      - DB_PASSWORD=postgres
-    depends_on:
-      - db
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - POSTGRESQL_DATABASE=sensortrack
+      - POSTGRESQL_REPLICATION_MODE=master
+      - POSTGRESQL_REPLICATION_USER=replicator
+      - POSTGRESQL_REPLICATION_PASSWORD=replpass
+    volumes:
+      - db_master_data:/bitnami/postgresql
+      - ./init/sql/create_tables.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - ./init/sql/create_users.sql:/docker-entrypoint-initdb.d/02-create-users.sql:ro
     networks:
       - st_network
 
-  db:
-    image: postgis/postgis:15-3.4
-    container_name: sensortrack_db
+  # PostgreSQL replica (slave)
+  db_replica:
+    image: bitnami/postgresql
+    container_name: sensortrack_db_replica
     restart: unless-stopped
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: sensortrack
+      - POSTGRESQL_REPLICATION_MODE=slave
+      - POSTGRESQL_REPLICATION_USER=replicator
+      - POSTGRESQL_REPLICATION_PASSWORD=replpass
+      - POSTGRESQL_MASTER_HOST=db_master
+      - POSTGRESQL_MASTER_PORT_NUMBER=5432
+      - POSTGRESQL_USERNAME=postgres
+      - POSTGRESQL_PASSWORD=postgres
+      - POSTGRESQL_DATABASE=sensortrack
+    depends_on:
+      - db_master
     volumes:
-      - ./init/sql/create_tables.sql:/docker-entrypoint-initdb.d/01-schema.sql
+      - db_replica_data:/bitnami/postgresql
+    networks:
+      - st_network
+
+  # Main backend (read/write)
+  app_main:
+    build: .
+    container_name: sensortrack_app_main
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db_master
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=sensortrack
+      - INSTANCE_NAME=app_main
+    depends_on:
+      - db_master
+    networks:
+      - st_network
+
+  # Read-only backend instances (connect to replica with limited user)
+  app_read1:
+    build: .
+    container_name: sensortrack_app_read1
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db_replica
+      - DB_PORT=5432
+      - DB_USER=ro_user
+      - DB_PASSWORD=ro_password
+      - DB_NAME=sensortrack
+      - INSTANCE_NAME=app_read1
+    depends_on:
+      - db_replica
+    networks:
+      - st_network
+
+  app_read2:
+    build: .
+    container_name: sensortrack_app_read2
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db_replica
+      - DB_PORT=5432
+      - DB_USER=ro_user
+      - DB_PASSWORD=ro_password
+      - DB_NAME=sensortrack
+      - INSTANCE_NAME=app_read2
+    depends_on:
+      - db_replica
+    networks:
+      - st_network
+
+  # Mirror instance: same app but mounted under /mirror prefixes
+  app_mirror:
+    build: .
+    container_name: sensortrack_app_mirror
+    restart: unless-stopped
+    environment:
+      - DB_HOST=db_master
+      - DB_PORT=5432
+      - DB_USER=postgres
+      - DB_PASSWORD=postgres
+      - DB_NAME=sensortrack
+      - API_API_V1_PREFIX=/mirror/api/v1
+      - API_API_V2_PREFIX=/mirror/api/v2
+      - INSTANCE_NAME=app_mirror
+    depends_on:
+      - db_master
     networks:
       - st_network
 
@@ -37,6 +117,7 @@ services:
     networks:
       - st_network
 
+  # Nginx reverse proxy / load balancer
   nginx:
     image: nginx:stable-alpine
     container_name: sensortrack_nginx
@@ -47,13 +128,68 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/html:/usr/share/nginx/html:ro
     depends_on:
-      - app
-      - adminer
+      - app_main
+      - app_read1
+      - app_read2
+      - app_mirror
+      - grafana
+    networks:
+      - st_network
+
+  # Loki and Grafana stack for logs/visualization
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: sensortrack_loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./tools/loki-config.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+    networks:
+      - st_network
+
+  promtail:
+    image: grafana/promtail:2.8.2
+    container_name: sensortrack_promtail
+    volumes:
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./tools/promtail-config.yaml:/etc/promtail/config.yml:ro
+      - ./tools/promtail-positions:/tmp
+    restart: unless-stopped
+    depends_on:
+      - loki
+    command: 
+      -config.file=/etc/promtail/config.yml -config.expand-env=true
+    networks:
+      - st_network
+
+  grafana:
+    depends_on:
+      - loki
+    image: grafana/grafana:latest
+    container_name: sensortrack_grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SERVER_DOMAIN=localhost
+      - GF_SERVER_ROOT_URL=http://localhost/monitoring/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_APP_URL=http://localhost/monitoring/
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./tools/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./tools/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "3000:3000"
     networks:
       - st_network
 
 volumes:
-  db_data:
+  db_master_data:
+  db_replica_data:
+  grafana_data:
+  loki_data:
 
 networks:
   st_network:
